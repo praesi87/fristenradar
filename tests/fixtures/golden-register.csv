@@ -1,0 +1,19 @@
+Projekt;Adresse;PLZ;Ort;Region;Leistung/Gewerk;Auftragnehmer;Rolle AN;Vertragsart;Abnahme/Fertigstellung;Datumsart;Fristende;Bauherr;Ansprechpartner Bauherr;Property Manager;Sicherheit;Status;Konfidenz;Quelle;Quelle Titel;Bemerkung
+TEST VOB Tag;Teststraße 1;60000;Frankfurt am Main;Rhein-Main;Test;Test Bau GmbH;GU;VOB/B;2022-09-20;Übergabe;;Test AG;;;;Kandidat;hoch;https://test.invalid/1;T1;erfunden
+TEST BGB Tag;;;Mainz;Rhein-Main;Test;;;BGB;2021-12-01;Übergabe;;Test AG;;;;Kandidat;mittel;https://test.invalid/2;T2;erfunden
+TEST unklar Tag;;;Wiesbaden;Rhein-Main;Test;;;unklar;2022-01-17;Eröffnung;;Test AG;;;;Kandidat;mittel;https://test.invalid/3;T3;erfunden
+TEST unklar Monat;;;Offenbach am Main;Rhein-Main;Test;;;unklar;2022-12;Fertigstellung;;Test AG;;;;Kandidat;mittel;https://test.invalid/4;T4;erfunden
+TEST VOB Monat;;;Hanau;Rhein-Main;Test;;;VOB/B;2023-02;Fertigstellung;;Test AG;;;;Kandidat;mittel;https://test.invalid/5;T5;erfunden
+TEST nur Jahr;;;Darmstadt;Rhein-Main;Test;;;unklar;2022;Fertigstellung;;Test AG;;;;Kandidat;niedrig;https://test.invalid/6;T6;erfunden
+TEST Schalttag VOB;;;Frankfurt am Main;Rhein-Main;Test;;;VOB/B;2020-02-29;Abnahme;;Test AG;;;;offen;;;;erfunden
+TEST Schalttag BGB;;;Frankfurt am Main;Rhein-Main;Test;;;BGB;2024-02-29;Abnahme;;Test AG;;;;offen;;;;erfunden
+TEST Fristende manuell;;;Frankfurt am Main;Rhein-Main;Test;;;VOB/B;2022-10-01;Abnahme;2024-10-01;Test AG;;;;offen;;;;erfunden
+TEST Fristende manuell Monat;;;Frankfurt am Main;Rhein-Main;Test;;;BGB;2022-10-01;Abnahme;2026-11;Test AG;;;;offen;;;;erfunden
+TEST abgelaufen beide;;;Frankfurt am Main;Rhein-Main;Test;;;unklar;2019-05-05;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/7;;erfunden
+TEST ausserhalb Region;;;Köln;NRW;Test;;;VOB/B;2022-10-10;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/8;;erfunden
+TEST ohne Datum;;;Frankfurt am Main;Rhein-Main;Test;;;VOB/B;;;;Test AG;;;;Kandidat;;https://test.invalid/9;;erfunden
+TEST Stichtag genau;;;Frankfurt am Main;Rhein-Main;Test;;;VOB/B;2022-09-24;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/10;;erfunden
+TEST Fensterende genau;;;Frankfurt am Main;Rhein-Main;Test;;;VOB/B;2023-03-24;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/11;;erfunden
+TEST Fensterende plus1;;;Frankfurt am Main;Rhein-Main;Test;;;VOB/B;2023-03-25;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/12;;erfunden
+TEST Monatsende 31;;;Frankfurt am Main;Rhein-Main;Test;;;unklar;2022-08-31;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/13;;erfunden
+TEST Region Schreibweise;;;Frankfurt am Main;rhein main;Test;;;VOB/B;2022-11-11;Übergabe;;Test AG;;;;Kandidat;;https://test.invalid/14;;erfunden
