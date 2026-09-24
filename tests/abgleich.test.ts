@@ -92,6 +92,14 @@ describe("Abgleich mit Bestand", () => {
     const plan = planeImport([], [z, { ...z }], kopf, "B");
     expect(plan.map((p) => p.aktion)).toEqual(["neu", "ueberspringen"]);
   });
+  it("Merge: zweite Quelle landet in der Bemerkung, Namensvariante ist kein Konflikt", () => {
+    const alt = { ...leeresObjekt("B"), projekt: "A – Neubau", quelle: "https://a.invalid/x", bemerkung: "alt" };
+    const neu = { ...leeresObjekt("B"), projekt: "Neubau A", quelle: "https://b.invalid/y" };
+    const m = merge(alt, neu);
+    expect(m.konflikte).toEqual({});
+    expect(m.ergaenzungen.bemerkung).toBe("alt | Weitere Quelle: https://b.invalid/y");
+    expect(merge({ ...alt, bemerkung: m.ergaenzungen.bemerkung! }, neu).ergaenzungen.bemerkung).toBeUndefined();
+  });
   it("Merge: Bemerkung wird angehängt, unklar füllt keine Vertragsart", () => {
     const alt = { ...leeresObjekt("B"), bemerkung: "alt", vertragsart: "VOB/B" };
     const neu = { ...leeresObjekt("B"), bemerkung: "neu", vertragsart: "unklar" };

@@ -1,0 +1,3 @@
+{
+  "recommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "vitest.explorer", "mechatroner.rainbow-csv", "github.vscode-github-actions"]
+}

@@ -134,6 +134,8 @@ export function vergleiche(neu: ObjektDaten, alt: Pick<Objekt, "projekt" | "ort"
 // ------------------------------------------------------------------ Merge
 
 const NIE_UEBERSCHREIBEN: Feld[] = ["spur", "status"];
+/** Namensvarianten sind normal (Treffer wurde ja bereits über den Namen gefunden) – kein Konflikt */
+const KEIN_KONFLIKT: Feld[] = ["projekt"];
 
 function gleich(a: string, b: string) {
   return norm(a) === norm(b);
@@ -159,8 +161,17 @@ export function merge(alt: ObjektDaten, neu: ObjektDaten): { ergaenzungen: Parti
       else if (!norm(a).includes(norm(n))) ergaenzungen[k] = `${a} | ${n}`;
       continue;
     }
+    if (KEIN_KONFLIKT.includes(k) && a) continue;
     if (!a || (k === "vertragsart" && a === "unklar")) ergaenzungen[k] = n;
     else if (!gleich(a, n)) konflikte[k] = { alt: a, neu: n };
+  }
+  // Zweite Fundstelle ist ein Gewinn, kein Konflikt: in die Bemerkung übernehmen
+  const qa = normUrl(alt.quelle);
+  const qn = normUrl(neu.quelle);
+  if (qa && qn && qa !== qn) {
+    delete konflikte.quelle;
+    const basis = ergaenzungen.bemerkung ?? alt.bemerkung ?? "";
+    if (!normUrl(basis).includes(qn)) ergaenzungen.bemerkung = [basis, `Weitere Quelle: ${neu.quelle.trim()}`].filter(Boolean).join(" | ");
   }
   return { ergaenzungen, konflikte };
 }

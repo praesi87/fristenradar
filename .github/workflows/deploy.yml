@@ -1,0 +1,54 @@
+# Baut die App bei jedem Push auf "main" und veröffentlicht sie auf GitHub Pages.
+# Einmalig einstellen: Repo → Settings → Pages → Source: "GitHub Actions".
+# Für echte Daten: Repo → Settings → Secrets and variables → Actions → Variables:
+#   SUPABASE_URL, SUPABASE_ANON_KEY  (beide sind für den Browser bestimmt, keine Geheimnisse)
+# Ohne diese Variablen läuft die Seite im Demo-Modus.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tests (Fristlogik, Import, Datenbankschema)
+        run: npm test
+      - name: Build
+        run: npm run build
+        env:
+          # Projektseite liegt unter https://<name>.github.io/<repo>/ – eigene Domain: Variable BASE_PATH = "/"
+          BASE_PATH: ${{ vars.BASE_PATH || (endsWith(github.event.repository.name, '.github.io') && '/' || format('/{0}/', github.event.repository.name)) }}
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
