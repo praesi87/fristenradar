@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { FELDER, SPUR_NAME, STATUS, type Spur } from "../lib/felder";
+import { SPUR_NAME, STATUS, type Spur } from "../lib/felder";
 import { deDatum, fensterEnde } from "../lib/fristen";
-import { schreibeCsv } from "../lib/csv";
+import { exportCsv } from "../lib/export";
 import { geoAbfrage, geokodiere } from "../lib/geo";
 import { useApp, geheZu, herunterladen, lokal, lokalSetzen } from "./kontext";
 import { Ampel, OEFF, berechneZeilen, kmText, type Zeile } from "./gemeinsam";
@@ -96,21 +96,7 @@ export function Liste({ spur }: { spur: Spur }) {
   }
 
   function exportieren() {
-    const kopf = ["Spur", ...FELDER.map((f) => f.csv[0]), "Lat", "Lon", "_Fristende_4J", "_Fristende_5J", "_Fristende_massgeblich", "_Resttage", "_Prioritaet", "_km_Buero", "_ID"];
-    const zeilen = sortiert.map(({ o, f, km }) => ({
-      Spur: o.spur,
-      ...Object.fromEntries(FELDER.map((fd) => [fd.csv[0], o[fd.key]])),
-      Lat: o.lat ?? "",
-      Lon: o.lon ?? "",
-      _Fristende_4J: f.f4 ?? "",
-      _Fristende_5J: f.f5 ?? "",
-      _Fristende_massgeblich: f.fristende ?? "",
-      _Resttage: f.tage ?? "",
-      _Prioritaet: f.prioritaet ?? "",
-      _km_Buero: km === null ? "" : km.toFixed(1),
-      _ID: o.id,
-    }));
-    herunterladen(`fristenradar-${spur === "A" ? "register" : "marktradar"}-${stichtag}.csv`, schreibeCsv(kopf, zeilen), "text/csv;charset=utf-8");
+    herunterladen(`fristenradar-${spur === "A" ? "register" : "marktradar"}-${stichtag}.csv`, exportCsv(sortiert.map((z) => z.o), stichtag, buero), "text/csv;charset=utf-8");
   }
 
   const kartenZeilen = sortiert.filter((z) => z.f.rheinMain || umfang !== "fenster");

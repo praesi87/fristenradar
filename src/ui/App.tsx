@@ -129,9 +129,14 @@ export function App() {
           <div className="kasten kasten-fehler">
             <h2>Nicht freigeschaltet</h2>
             <p>
-              Du bist als <b>{nutzer}</b> angemeldet, diese Adresse steht aber nicht in der Freischaltliste. Ein Admin trägt sie im Supabase-SQL-Editor ein:
+              Du bist als <b>{nutzer}</b> angemeldet, hast aber keinen Zugriff. Mögliche Gründe: Du hast dich nicht mit dem Microsoft-Firmenkonto angemeldet, oder die Domain ist noch nicht freigeschaltet. Ein Admin kann das im Supabase-SQL-Editor nachholen:
             </p>
-            <pre>insert into public.erlaubte_nutzer (email) values ('{nutzer}');</pre>
+            <pre>
+              {`-- ganze Firmen-Domain (nur Microsoft-Login):\ninsert into public.erlaubte_domains (domain) values ('${nutzer.split("@")[1] ?? "firma.de"}');\n-- oder nur diese eine Adresse:\ninsert into public.erlaubte_nutzer (email) values ('${nutzer}');`}
+            </pre>
+            <button className="knopf knopf-zweit" onClick={() => store.abmelden()}>
+              Abmelden und anders anmelden
+            </button>
           </div>
         ) : ladefehler ? (
           <div className="kasten kasten-fehler">

@@ -54,7 +54,7 @@ passieren dort, nicht auf der Webseite.
 Warum so:
 - **Kostenlos** (deine Vorgabe): GitHub Pages, GitHub Actions, Supabase Free und OSM kosten nichts.
 - **Daten nicht im Repo:** Ein kostenloses GitHub-Pages-Repo muss öffentlich sein. Das Register enthält Ansprechpartner und Akquise-Einschätzungen, deshalb gehört es in eine Datenbank mit Login.
-- **Schutz serverseitig:** Wer den Code liest, kommt trotzdem nicht an die Daten. Die Datenbank prüft bei jeder Abfrage, ob die angemeldete E-Mail in `erlaubte_nutzer` steht.
+- **Schutz serverseitig:** Wer den Code liest, kommt trotzdem nicht an die Daten. Die Datenbank prüft bei jeder Abfrage, ob die Person mit ihrem Microsoft-Firmenkonto angemeldet ist (freigeschaltete Domain) oder einzeln freigeschaltet wurde.
 
 ---
 
@@ -75,7 +75,7 @@ Warum so:
    npm test
    npm run dev
    ```
-   `npm test` muss mit „41 passed“ enden. Nach `npm run dev` den Link **http://localhost:5173** öffnen. Die App läuft jetzt im **Demo-Modus** mit erfundenen Daten.
+   `npm test` muss mit „42 passed“ enden. Nach `npm run dev` den Link **http://localhost:5173** öffnen. Die App läuft jetzt im **Demo-Modus** mit erfundenen Daten.
 4. Beenden mit **Strg + C** im Terminal.
 
 > Falls `npm` „nicht gefunden“ meldet: VS Code einmal komplett schließen und neu öffnen (nach der Node-Installation).
@@ -96,15 +96,36 @@ Warum so:
 2. **New project**: Name `fristenradar`, Region **Central EU (Frankfurt)**, ein starkes Datenbank-Passwort vergeben (im Passwortmanager ablegen, die App braucht es nicht).
 3. Links **SQL Editor** → **New query** → den **kompletten Inhalt** von `supabase/schema.sql` einfügen → **Run**.
    Falls Supabase vor „destructive operations“ warnt: bestätigen. Gemeint sind die `drop policy/trigger if exists`-Zeilen, die das Skript wiederholbar machen. Es werden keine Daten gelöscht.
-4. Direkt danach im SQL Editor die eigene Adresse freischalten (weitere Kollegen genauso):
+4. Direkt danach im SQL Editor die **Firmen-Domain** freischalten. Damit hat jede Person mit claim.m-Adresse Zugriff, **sofern sie sich mit Microsoft anmeldet** (3.4b). Die Domain bitte genau so eintragen, wie sie hinter dem @ der Firmen-Adressen steht, klein geschrieben:
    ```sql
-   insert into public.erlaubte_nutzer (email) values ('deine.adresse@claimm.de');
+   insert into public.erlaubte_domains (domain) values ('<firmen-domain>');   -- z. B. die Domain eurer Outlook-Adressen
    ```
-5. **Authentication → Sign In / Providers**: **„Allow new users to sign up“ ausschalten**. E-Mail als Anbieter bleibt an.
-6. **Authentication → Users → Add user → Create new user**: E-Mail + Passwort, **„Auto Confirm User“ anhaken**.
-7. **Authentication → URL Configuration → Site URL**: die Adresse aus 3.3 eintragen (wichtig für „Passwort vergessen“-Mails).
+   Optional einzelne Externe mit Passwort-Login: `insert into public.erlaubte_nutzer (email) values ('name@extern.de');`
+5. **Authentication → Sign In / Providers**:
+   - **„Allow new users to sign up“ EINschalten.** Das ist nötig, damit Kollegen beim ersten Microsoft-Login automatisch angelegt werden. Sicher ist das trotzdem: Ohne Microsoft-Firmenkonto bzw. Freischaltung sieht ein neues Konto keine Daten (Row Level Security).
+   - **Email**-Anbieter: **ausschalten**, wenn es keine Externen gibt (dann gibt es nur noch den Microsoft-Login). Wenn er an bleibt, muss „Confirm email“ aktiv sein.
+6. Nur für Externe/Notfall-Zugang: **Authentication → Users → Add user → Create new user**, E-Mail + Passwort, **„Auto Confirm User“** anhaken, und die Adresse in `erlaubte_nutzer` eintragen.
+7. **Authentication → URL Configuration**: **Site URL** = die Adresse aus 3.3 (z. B. `https://<name>.github.io/fristenradar/`). Dieselbe Adresse auch unter **Redirect URLs** eintragen, sonst leitet der Microsoft-Login nicht zur App zurück.
 8. **Project Settings → API Keys** (je nach Oberfläche auch „API“): die **Project URL** und den **publishable key** kopieren. Der publishable key beginnt mit `sb_publishable_…`; bei älteren Projekten heißt er „anon public“.
    **Niemals** den `service_role`/secret key verwenden, der hebelt alle Rechte aus.
+
+### 3.4b Anmeldung mit dem Microsoft-Firmenkonto (Entra ID)
+Das braucht **Admin-Rechte im Microsoft-365-Konto von claim.m** und dauert ca. 15 Minuten. Das Ergebnis: Auf der Login-Seite steht „Mit Microsoft anmelden“, Kollegen melden sich mit ihrem normalen Firmenkonto an, und für die App gibt es kein eigenes Passwort mehr.
+
+1. https://entra.microsoft.com → **Identität → Anwendungen → App-Registrierungen → Neue Registrierung**
+   - Name: `Fristenradar`
+   - Unterstützte Kontotypen: **„Nur Konten in diesem Organisationsverzeichnis“**
+   - Umleitungs-URI: Plattform **Web**, Adresse `https://<projekt-ref>.supabase.co/auth/v1/callback` (die Project URL aus 3.4 Schritt 8 plus `/auth/v1/callback`)
+   - **Registrieren**
+2. Auf der Übersichtsseite notieren: **Anwendungs-ID (Client-ID)** und **Verzeichnis-ID (Mandanten-ID)**.
+3. **Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel** → Ablauf z. B. 24 Monate → den **Wert** sofort kopieren (er wird nur einmal angezeigt). **Ablaufdatum in den Kalender eintragen**, einige Wochen vorher erinnern lassen: An diesem Tag funktioniert der Login sonst nicht mehr, dann einen neuen Schlüssel erzeugen und in Supabase ersetzen.
+4. **Tokenkonfiguration → Optionalen Anspruch hinzufügen → ID** → **email** anhaken. Supabase braucht die E-Mail-Adresse. Falls die Supabase-Doku zusätzliche Ansprüche nennt (z. B. zur E-Mail-Verifizierung), diese ebenfalls hinzufügen: https://supabase.com/docs/guides/auth/social-login/auth-azure
+5. In **Supabase → Authentication → Sign In / Providers → Azure**: aktivieren, **Client ID** und **Secret** (den *Wert* aus Schritt 3) eintragen, **Azure Tenant URL** = `https://login.microsoftonline.com/<Mandanten-ID>` → **Save**.
+   Die Tenant URL beschränkt den Login auf Konten eures Microsoft-Mandanten. Private Microsoft-Konten kommen nicht hinein.
+6. Test: App öffnen → **Mit Microsoft anmelden** → Microsoft-Fenster → zurück in der App, die Daten sind sichtbar.
+   Wenn „Nicht freigeschaltet“ erscheint: Die Domain in Schritt 3.4/4 stimmt nicht mit der Adresse überein, die Microsoft liefert (die App zeigt die angemeldete Adresse an).
+
+Die Freischaltung ist bewusst an den Microsoft-Login gebunden. Eine E-Mail-Adresse allein beweist nichts, ein Konto aus dem eigenen Microsoft-Mandanten schon. Wer die Firma verlässt und dessen Microsoft-Konto die IT sperrt, kommt auch hier nicht mehr hinein.
 
 ### 3.5 GitHub mit der Datenbank verbinden
 1. Repo → **Settings → Secrets and variables → Actions** → Reiter **Variables** → **New repository variable**:
@@ -133,26 +154,27 @@ Kartenkacheln, Adresssuche und Supabase waren aus meiner Umgebung **nicht erreic
 bitte beim ersten Mal im Browser prüfen:
 
 - [ ] Karte zeigt echte Straßen im dunklen Radar-Look. Falls der Look nicht passt (zu dunkel/hell): Tabelle `RADAR_KURVE` in `src/ui/RadarKarte.tsx` anpassen. Ich habe sie an synthetischen Kacheln in OSM-Farben kalibriert, nicht an echten.
-- [ ] Anmeldung klappt. Ein nicht freigeschalteter Nutzer sieht „Nicht freigeschaltet“ und keine Daten.
+- [ ] „Mit Microsoft anmelden“ klappt und führt zurück in die App. Ein Konto ohne freigeschaltete Domain sieht „Nicht freigeschaltet“ und keine Daten.
 - [ ] Import des Registers: 41 Zeilen „neu“. Danach KPIs zum Stichtag 24.09.2026: 24 im Fenster / 15 ≤ 90 Tage / 10 abgelaufen.
 - [ ] „Koordinaten ermitteln“ läuft durch, Fähnchen erscheinen, Entfernungen sind plausibel (z. B. Mainz ≈ 30–40 km Luftlinie).
 - [ ] Fähnchen anklicken → Popup mit allen Angaben, „Route in OpenStreetMap“ öffnet die Routenplanung.
 - [ ] Einen Eintrag ändern → in den Details erscheint die Historie mit deiner E-Mail.
 - [ ] Brief bei einem P1-Kandidaten erzeugen. Mit einem Bauherrn auf der Austragungsliste ist er gesperrt.
-- [ ] Zweiten Nutzer anlegen (3.4 Schritt 4 + 6) und prüfen, dass er dieselben Daten sieht.
+- [ ] Ein Kollege meldet sich mit Microsoft an und sieht ohne weiteres Zutun dieselben Daten.
 
 ---
 
 ## 5 · Was getestet ist und was nicht
 
-**Getestet (41 automatische Tests, laufen bei jedem Push auf GitHub):**
+**Getestet (42 automatische Tests, laufen bei jedem Push auf GitHub):**
 - Fristlogik gegen die Python-Originale (4 Stichtage × 18 Grenzfälle, u. a. 29.02., Monatsangaben, manuelles Fristende, Fenstergrenzen) plus Priorisierung (48 Fälle) und Brieftexte.
 - CSV-Parser (Semikolon, Anführungszeichen, Umbrüche, BOM), Spaltenzuordnung aller drei CSV-Formate, Dublettenerkennung mit echten Namensvarianten aus deinem Bestand, Merge-Regeln.
-- **Datenbankschema in echtem PostgreSQL** (PGlite): anonym kein Zugriff; angemeldet, aber nicht freigeschaltet keine Daten; freigeschaltet anlegen/ändern mit Historie; Löschen verboten; Spur unveränderlich; Quellenzwang; Datumsformat.
+- **Datenbankschema in echtem PostgreSQL** (PGlite): anonym kein Zugriff; angemeldet, aber nicht freigeschaltet keine Daten; freigeschaltet anlegen/ändern mit Historie; Löschen verboten; Spur unveränderlich; Quellenzwang; Datumsformat; Domain-Freischaltung nur mit Microsoft-Login und nur für exakt diese Domain (keine Subdomains oder ähnlich klingende Domains).
 - Oberfläche im Browser (Chromium) durchgeklickt, mit Demo-Daten und deinem echten Register. Kartenkacheln und Adresssuche waren dabei durch Attrappen ersetzt. Keine JavaScript-Fehler, mobil ohne horizontales Scrollen.
 
 **Nicht getestet (aus meiner Umgebung nicht erreichbar):**
 - Echte OSM-Kacheln und echte Nominatim-Antworten (der Proxy sperrt beide Server).
+- Der Microsoft-Login gegen einen echten Entra-Mandanten. Die Login-Seite und die Fehlermeldungen sind getestet, die Weiterleitung selbst nicht.
 - Echte Supabase-Verbindung (Login, Speichern über das Netz). Die Aufrufe sind Standard-`supabase-js`, das SQL ist getestet, aber der End-to-End-Weg nicht.
 - Der GitHub-Actions-Workflow selbst. Die Action-Versionen stammen aus der GitHub-Doku (Stand 09/2026). Bei `actions/setup-node@v5` bin ich mir nicht zu 100 % sicher. Falls der Build daran scheitert: auf `@v4` ändern.
 
@@ -160,7 +182,7 @@ bitte beim ersten Mal im Browser prüfen:
 
 ## 6 · Grenzen, Risiken, offene Entscheidungen
 
-1. **GitHub Pages und Login.** GitHub schreibt in den Nutzungsbedingungen für Pages, die Seiten sollten nicht für sensible Vorgänge wie das Senden von Passwörtern genutzt werden, und Pages sei nicht als kostenloses Hosting für ein Online-Geschäft/SaaS gedacht ([GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)). Ein internes Werkzeug ist kein Shop. Das Passwort geht technisch verschlüsselt direkt an Supabase, nicht an GitHub. Trotzdem ist das eine Grauzone, bitte selbst bewerten.
+1. **GitHub Pages und Login.** GitHub schreibt in den Nutzungsbedingungen für Pages, die Seiten sollten nicht für sensible Vorgänge wie das Senden von Passwörtern genutzt werden, und Pages sei nicht als kostenloses Hosting für ein Online-Geschäft/SaaS gedacht ([GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)). Mit dem **Microsoft-Login** (3.4b) wird das Passwort bei Microsoft eingegeben und nicht auf der Seite. Damit ist der Passwort-Punkt weitgehend erledigt, solange der Email-Anbieter in Supabase aus ist. Ein internes Werkzeug ist außerdem kein Shop oder SaaS. Die abschließende Bewertung bleibt bei dir.
    **Saubere kostenlose Alternative: Cloudflare Pages.** Der Code bleibt auf GitHub (dann auch als **privates** Repo), Cloudflare baut bei jedem Push automatisch. Dazu gibt es optional „Cloudflare Access“, das die ganze Seite hinter einen Login legt. Einrichtung: dash.cloudflare.com → *Workers & Pages → Create → Pages → Connect to Git* → Repo wählen → Build command `npm run build`, Output `dist`, Umgebungsvariablen `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY`. Am Code ist nichts zu ändern. Kostenloser Tarif laut Cloudflare: 500 Builds/Monat. Ob private Repos im Free-Tarif gehen, steht nicht auf der Limits-Seite, bitte beim Einrichten prüfen.
 2. **Öffentliches Repo = öffentlicher Code.** Fristlogik, Brieftexte und Import-Regeln sind für jeden lesbar, die Daten nicht. Wer das nicht will: privates Repo + Cloudflare Pages (Punkt 1) oder GitHub Pro (kostenpflichtig).
 3. **Supabase Free pausiert nach 7 Tagen ohne Aktivität.** Die Action `keepalive.yml` fragt alle 3 Tage an. GitHub schaltet geplante Actions in öffentlichen Repos aber **nach 60 Tagen ohne Commit** ab. Dann im Reiter Actions wieder aktivieren. Ein pausiertes Projekt lässt sich im Supabase-Dashboard mit „Restore“ wieder starten, die Daten bleiben erhalten. Datenbank-Limit im Free-Tarif: 500 MB, für dieses Register mehr als genug.

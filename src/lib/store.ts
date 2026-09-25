@@ -28,6 +28,8 @@ export interface Store {
   modus: "demo" | "supabase";
   nutzer(): Promise<string | null>;
   anmelden(email: string, passwort: string): Promise<void>;
+  /** Weiterleitung zum Microsoft-Login (Entra ID). Kehrt nach erfolgreicher Anmeldung zur App zurück. */
+  anmeldenMicrosoft(): Promise<void>;
   abmelden(): Promise<void>;
   freigeschaltet(): Promise<boolean>;
   liste(): Promise<Objekt[]>;
@@ -60,8 +62,12 @@ function fehler(e: { message: string; code?: string } | null, kontext: string): 
 export class SupabaseStore implements Store {
   modus = "supabase" as const;
   sb: SupabaseClient;
-  constructor(url: string, key: string) {
-    this.sb = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
+  /** server = true: Einsatz in der GitHub Action (kein Browser, keine Sitzung) */
+  constructor(url: string, key: string, server = false) {
+    // PKCE: Microsoft liefert den Anmelde-Code als ?code=… zurück, nicht im #-Teil der Adresse – der gehört dem Hash-Routing der App.
+    this.sb = createClient(url, key, {
+      auth: server ? { persistSession: false, autoRefreshToken: false } : { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
+    });
   }
   async nutzer() {
     const { data } = await this.sb.auth.getSession();
@@ -70,6 +76,11 @@ export class SupabaseStore implements Store {
   async anmelden(email: string, passwort: string) {
     const { error } = await this.sb.auth.signInWithPassword({ email, password: passwort });
     if (error) throw new Error(error.message === "Invalid login credentials" ? "E-Mail oder Passwort falsch." : error.message);
+  }
+  async anmeldenMicrosoft() {
+    const zurueck = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await this.sb.auth.signInWithOAuth({ provider: "azure", options: { scopes: "email openid profile", redirectTo: zurueck } });
+    if (error) throw new Error(/provider is not enabled|unsupported provider/i.test(error.message) ? "Microsoft-Anmeldung ist in Supabase noch nicht eingerichtet (Authentication → Providers → Azure)." : error.message);
   }
   async abmelden() {
     await this.sb.auth.signOut();
@@ -156,6 +167,9 @@ export class DemoStore implements Store {
   }
   async anmelden(email: string) {
     this.user = email;
+  }
+  async anmeldenMicrosoft() {
+    this.user = "demo.microsoft@beispiel.invalid";
   }
   async abmelden() {
     this.user = null;

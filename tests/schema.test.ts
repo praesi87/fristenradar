@@ -10,8 +10,9 @@ import { PGlite } from "@electric-sql/pglite";
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf-8");
 let db: PGlite;
 
-async function als(rolle: "anon" | "authenticated" | "postgres", email: string | null, sql: string, params: unknown[] = []) {
-  await db.exec(`reset role; select set_config('request.jwt.claims', '${email ? JSON.stringify({ email }) : ""}', false);`);
+async function als(rolle: "anon" | "authenticated" | "postgres", email: string | null, sql: string, params: unknown[] = [], provider = "email") {
+  const claims = email ? JSON.stringify({ email, app_metadata: { provider, providers: [provider] } }) : "";
+  await db.exec(`reset role; select set_config('request.jwt.claims', '${claims}', false);`);
   if (rolle !== "postgres") await db.exec(`set role ${rolle};`);
   try {
     return await db.query(sql, params);
@@ -36,6 +37,7 @@ beforeAll(async () => {
   await db.exec(schema);
   await db.exec(schema); // idempotent?
   await db.exec(`insert into public.erlaubte_nutzer (email) values ('philipp@test.invalid');`);
+  await db.exec(`insert into public.erlaubte_domains (domain) values ('firma.invalid');`);
 }, 60000);
 
 describe("schema.sql", () => {
@@ -80,6 +82,17 @@ describe("schema.sql", () => {
     await expect(als("authenticated", "philipp@test.invalid", "insert into public.objekte (spur, projekt, quelle, bezugsart) values ('B','x','q','abnahme')")).rejects.toThrow(/abnahme_nur_spur_a/);
     await expect(als("authenticated", "philipp@test.invalid", "insert into public.objekte (spur, projekt, datum) values ('A','x','Frühjahr 2023')")).rejects.toThrow(/datum/);
     await expect(als("authenticated", "philipp@test.invalid", "insert into public.objekte (spur, projekt, datum, bezugsart) values ('A','x','2024-03-12','abnahme')")).resolves.toBeTruthy();
+  });
+
+  it("Domain-Freischaltung nur mit Microsoft-Login und nur exakt diese Domain", async () => {
+    const q = "select public.ist_freigeschaltet() as f";
+    expect((await als("authenticated", "Anna.Test@Firma.invalid", q, [], "azure")).rows[0]).toEqual({ f: true });
+    expect((await als("authenticated", "anna@firma.invalid", q, [], "email")).rows[0]).toEqual({ f: false });
+    expect((await als("authenticated", "anna@evil.firma.invalid", q, [], "azure")).rows[0]).toEqual({ f: false });
+    expect((await als("authenticated", "anna@firma.invalid.evil", q, [], "azure")).rows[0]).toEqual({ f: false });
+    const r = await als("authenticated", "anna@firma.invalid", "select count(*)::int as n from public.objekte", [], "azure");
+    expect((r.rows[0] as { n: number }).n).toBeGreaterThan(0);
+    await expect(als("authenticated", "anna@firma.invalid", "insert into public.erlaubte_domains values ('x.invalid')", [], "azure")).rejects.toThrow(/permission denied/);
   });
 
   it("Austragungen und Einstellungen", async () => {

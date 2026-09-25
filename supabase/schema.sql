@@ -11,20 +11,36 @@
 --   * Die Spur (A = Register, B = Marktradar) ist nach dem Anlegen unveränderlich.
 -- =====================================================================================
 
--- ------------------------------------------------------------------ Freischaltliste
+-- ------------------------------------------------------------------ Freischaltung
+-- Zwei Wege, beide nur über den SQL Editor pflegbar (bewusst keine Policies):
+--  1. erlaubte_domains: jede Person mit Firmen-Adresse dieser Domain, die sich über MICROSOFT (Entra ID) anmeldet.
+--     Die Bindung an den Microsoft-Login ist Absicht: Eine E-Mail-Adresse allein beweist nichts, ein
+--     Microsoft-Firmenkonto aus dem eigenen Mandanten schon.
+--  2. erlaubte_nutzer: einzelne Adressen (z. B. Externe oder Notfall-Zugang mit Passwort), egal welcher Login.
 create table if not exists public.erlaubte_nutzer (
   email text primary key,
   angelegt_am timestamptz not null default now()
 );
 alter table public.erlaubte_nutzer enable row level security;
--- bewusst keine Policies: nur über den SQL Editor pflegbar
+
+create table if not exists public.erlaubte_domains (
+  domain text primary key check (domain = lower(domain) and domain !~ '@'),
+  angelegt_am timestamptz not null default now()
+);
+alter table public.erlaubte_domains enable row level security;
 
 create or replace function public.ist_freigeschaltet() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from public.erlaubte_nutzer
-    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  );
+  with j as (
+    select lower(coalesce(auth.jwt() ->> 'email', '')) as email,
+           coalesce(auth.jwt() -> 'app_metadata', '{}'::jsonb) as meta
+  )
+  select exists (select 1 from public.erlaubte_nutzer n, j where lower(n.email) = j.email and j.email <> '')
+      or exists (
+        select 1 from public.erlaubte_domains d, j
+        where split_part(j.email, '@', 2) = d.domain
+          and (j.meta ->> 'provider' = 'azure' or coalesce(j.meta -> 'providers', '[]'::jsonb) ? 'azure')
+      );
 $$;
 revoke all on function public.ist_freigeschaltet() from public;
 grant execute on function public.ist_freigeschaltet() to authenticated;
@@ -170,7 +186,7 @@ alter table public.einstellungen enable row level security;
 
 -- Supabase vergibt auf dem Schema public standardmäßig alle Rechte an anon/authenticated.
 -- Deshalb erst alles entziehen, dann genau das Nötige erlauben (kein DELETE, Historie nur lesen).
-revoke all on public.objekte, public.historie, public.austragungen, public.einstellungen, public.erlaubte_nutzer from anon, authenticated;
+revoke all on public.objekte, public.historie, public.austragungen, public.einstellungen, public.erlaubte_nutzer, public.erlaubte_domains from anon, authenticated;
 grant select, insert, update on public.objekte to authenticated;
 grant select on public.historie to authenticated;
 grant select, insert on public.austragungen to authenticated;
@@ -199,6 +215,8 @@ drop policy if exists einstellungen_aendern on public.einstellungen;
 create policy einstellungen_aendern on public.einstellungen for update to authenticated using (public.ist_freigeschaltet()) with check (public.ist_freigeschaltet());
 
 -- =====================================================================================
--- Danach (einmalig, eigene Adresse eintragen):
---   insert into public.erlaubte_nutzer (email) values ('vorname.nachname@firma.de');
+-- Danach einmalig die Firmen-Domain freischalten (gilt für Microsoft-Login), z. B.:
+--   insert into public.erlaubte_domains (domain) values ('firma.de');
+-- Optional einzelne Adressen (Externe, Passwort-Login):
+--   insert into public.erlaubte_nutzer (email) values ('vorname.nachname@beispiel.de');
 -- =====================================================================================
