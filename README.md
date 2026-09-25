@@ -1,6 +1,6 @@
 # Fristenradar Rhein-Main · claim.m
 
-Webapp für das Gewährleistungsmanagement von claim.m (Qualität & Bau). Sie hat zwei strikt getrennte Spuren:
+Webapp für das Gewährleistungsmanagement von claim.m (Technical & Quality Management). Sie hat zwei strikt getrennte Spuren:
 
 - **Register (Spur A):** fristverbindlich, nur belegte Abnahmen aus eigenen Mandatsunterlagen.
 - **Marktradar (Spur B):** Akquise aus öffentlichen Quellen (Übergabe, Eröffnung, Zuschlag), mit Priorisierung und Briefentwurf.

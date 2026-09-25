@@ -85,7 +85,7 @@ export function App() {
             <Logo variante="dunkel" />
           </a>
           <div className="kopf-titel">
-            <span className="eyebrow eyebrow-hell">Qualität &amp; Bau · Gewährleistung</span>
+            <span className="eyebrow eyebrow-hell">Technical &amp; Quality Management · Gewährleistung</span>
             <strong>Fristenradar Rhein-Main</strong>
           </div>
           <nav className="kopf-nav" aria-label="Hauptnavigation">

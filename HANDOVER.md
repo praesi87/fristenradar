@@ -1,6 +1,6 @@
 # Übergabe · Fristenradar Rhein-Main (Webapp)
 
-Stand: 24.09.2026 · claim.m GmbH, Qualität & Bau
+Stand: 24.09.2026 · claim.m GmbH, Technical & Quality Management
 
 Diese Datei erklärt, was gebaut ist, wie du es in Betrieb nimmst (VS Code → GitHub → Homepage, Datenbank Supabase),
 was getestet ist und was nicht, und wo die Grenzen liegen. Wer das Projekt später weiterentwickelt, findet hier auch die

@@ -46,7 +46,7 @@ export function Login({ store }: { store: Store }) {
       <div className="login-seite">
         <Logo variante="dunkel" />
         <div>
-          <div className="eyebrow eyebrow-hell">Qualität &amp; Bau · Gewährleistung</div>
+          <div className="eyebrow eyebrow-hell">Technical &amp; Quality Management · Gewährleistung</div>
           <h1>Fristenradar Rhein-Main</h1>
           <p>Gewährleistungsfristen im Blick – Register für eigene Mandate, Marktradar für die Akquise.</p>
         </div>
