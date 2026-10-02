@@ -8,6 +8,30 @@ Architekturentscheidungen.
 
 ---
 
+## 0 · Aktueller Stand (02.10.2026): Login per MSAL, noch keine Datenbank
+
+**Wichtig – hat Vorrang vor den Abschnitten 3.4 bis 3.5 und der Checkliste in Abschnitt 4.**
+Das Supabase-Projekt wurde nie angelegt. Die App läuft deshalb im **Demo-Modus** mit erfundenen Beispieldaten, Änderungen gehen beim Neuladen verloren. Die Anmeldung mit dem Microsoft-Firmenkonto funktioniert trotzdem und ist live auf GitHub Pages.
+
+**Wie der Login funktioniert**
+- MSAL (`@azure/msal-browser` v3) im Popup-Fenster, wie im CAPEX-Rechnungstool. Code: `src/lib/auth.ts`.
+- Entra-App-Registrierung: Client ID `fbb2c372-0be9-42a0-889d-a821a7ced2e4`, Mandant `07cf9a53-cac1-46a9-9f4a-e9075df36c17` (nur Konten des claim.m-Mandanten kommen durch).
+- In Entra unter Authentifizierung als Plattform **Single-page application** mit den Umleitungs-URIs `https://praesi87.github.io/fristenradar/` (mit Schrägstrich am Ende, Entra vergleicht exakt) und `http://localhost:5173/` für `npm run dev`. Kein Client Secret nötig.
+- Nach der Anmeldung zeigt die Kopfzeile den Namen aus dem Microsoft-Konto, „Abmelden“ beendet nur die Sitzung in der App.
+- Die Sitzung gilt pro Browser-Tab (`sessionStorage`).
+
+**Was der Login nicht leistet**
+- Er ist nur eine Schranke vor den Demo-Daten, **keine Datensicherheit**. Das Repo ist öffentlich, alles, was die App ohne Server-Prüfung lädt, kann jeder auslesen. **Keine echten Kundendaten in die App**, bis die Datenhaltung entschieden ist.
+- Die Passwort-Anmeldung für Externe gibt es nur mit Supabase.
+
+**Offene Entscheidung: Wo liegen die echten Daten?**
+1. **Supabase** wie in den Abschnitten 3.4 bis 3.5 beschrieben. Dann greift wieder der Supabase-Login (Abschnitt 3.4b) mit Freischaltung per Domain und Rechten in der Datenbank. Die Anmeldung läuft in diesem Fall über Supabase statt über MSAL, die Entra-App braucht dafür die Umleitungs-URI von Supabase (Plattform „Web“ plus Client Secret).
+2. **SharePoint** über MSAL und Microsoft Graph, wie im CAPEX-Rechnungstool. Die Zugriffsrechte regelt dann Microsoft 365. Das ist ein Umbau der Datenschicht (`src/lib/store.ts`).
+
+**Umschalten:** Sind die Variablen `SUPABASE_URL` und `SUPABASE_ANON_KEY` im Repo gesetzt (Abschnitt 3.5), baut die App automatisch im Supabase-Modus. Ohne sie bleibt es beim Demo-Modus mit MSAL-Login. Die Abschnitte 3.4, 3.4b und 3.5 unten sind unverändert erhalten und gelten nur für den Supabase-Weg.
+
+---
+
 ## 1 · Was die App kann
 
 | Bereich | Funktion |
