@@ -1,11 +1,12 @@
 /**
  * Datenzugriff. Zwei Implementierungen mit derselben Schnittstelle:
  *   - SupabaseStore: echte Daten, Login, Rechte über Row Level Security (supabase/schema.sql)
- *   - DemoStore: erfundene Beispieldaten im Speicher (für die öffentliche Seite ohne Login und lokale Tests)
+ *   - DemoStore: erfundene Beispieldaten im Speicher, Login per Microsoft-Popup (MSAL)
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Objekt, ObjektDaten } from "./felder";
 import { DEMO_DATEN } from "./demo";
+import { aktuellesKonto, anmeldenPopup, abmeldenLokal } from "./auth";
 
 export interface HistorieEintrag {
   id: number;
@@ -27,6 +28,8 @@ export interface Austragung {
 export interface Store {
   modus: "demo" | "supabase";
   nutzer(): Promise<string | null>;
+  /** Vollständiger Name aus dem Microsoft-Konto (für die Anzeige), sonst null */
+  anzeigename(): Promise<string | null>;
   anmelden(email: string, passwort: string): Promise<void>;
   /** Weiterleitung zum Microsoft-Login (Entra ID). Kehrt nach erfolgreicher Anmeldung zur App zurück. */
   anmeldenMicrosoft(): Promise<void>;
@@ -72,6 +75,11 @@ export class SupabaseStore implements Store {
   async nutzer() {
     const { data } = await this.sb.auth.getSession();
     return data.session?.user.email ?? null;
+  }
+  async anzeigename() {
+    const { data } = await this.sb.auth.getSession();
+    const m = data.session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
+    return m?.full_name || m?.name || null;
   }
   async anmelden(email: string, passwort: string) {
     const { error } = await this.sb.auth.signInWithPassword({ email, password: passwort });
@@ -155,24 +163,38 @@ export class DemoStore implements Store {
   private hist: HistorieEintrag[] = [];
   private aus: Austragung[] = [{ id: 1, name: "BEISPIEL Widerspruch GmbH", notiz: "Demo-Eintrag", erstellt_am: new Date().toISOString(), erstellt_von: "demo" }];
   private naechsteId: number;
-  private user: string | null = "demo@beispiel.invalid";
+  private user: string | null = null;
+  private name: string | null = null;
   private einst: Record<string, unknown> = { buero: { adresse: "BEISPIEL-Büro Frankfurt am Main (Innenstadt) – in den Einstellungen ändern", lat: 50.1109, lon: 8.6821 } };
   constructor(start: ObjektDaten[] = DEMO_DATEN) {
     const jetzt = new Date().toISOString();
     this.objekte = start.map((o, i) => ({ ...o, id: i + 1, archiviert: false, erstellt_am: jetzt, erstellt_von: "demo", geaendert_am: jetzt, geaendert_von: "demo" }));
     this.naechsteId = this.objekte.length + 1;
   }
+  /** Anmeldung über MSAL-Popup (src/lib/auth.ts); die Sitzung überlebt ein Neuladen im selben Tab. */
   async nutzer() {
+    if (!this.user) {
+      const k = await aktuellesKonto();
+      this.user = k?.email ?? null;
+      this.name = k?.name ?? null;
+    }
     return this.user;
   }
-  async anmelden(email: string) {
-    this.user = email;
+  async anzeigename() {
+    return this.name;
+  }
+  async anmelden(): Promise<void> {
+    throw new Error("Anmeldung mit Passwort gibt es nur mit Supabase.");
   }
   async anmeldenMicrosoft() {
-    this.user = "demo.microsoft@beispiel.invalid";
+    const k = await anmeldenPopup();
+    this.user = k.email;
+    this.name = k.name;
   }
   async abmelden() {
     this.user = null;
+    this.name = null;
+    await abmeldenLokal();
   }
   async freigeschaltet() {
     return true;

@@ -15,6 +15,7 @@ const store = erstelleStore();
 
 export function App() {
   const [nutzer, setNutzer] = useState<string | null | undefined>(undefined);
+  const [name, setName] = useState<string | null>(null);
   const [frei, setFrei] = useState<boolean | null>(null);
   const [objekte, setObjekte] = useState<Objekt[]>([]);
   const [austragungen, setAustragungen] = useState<Austragung[]>([]);
@@ -43,14 +44,28 @@ export function App() {
     }
   }, []);
 
+  const aktualisiereNutzer = useCallback(async () => {
+    const [n, a] = await Promise.all([store.nutzer(), store.anzeigename()]);
+    setNutzer(n);
+    setName(a);
+  }, []);
+
+  const abmelden = useCallback(async () => {
+    await store.abmelden();
+    await aktualisiereNutzer();
+  }, [aktualisiereNutzer]);
+
   useEffect(() => {
-    store.nutzer().then(setNutzer);
+    aktualisiereNutzer();
     if (store instanceof Object && "sb" in store) {
       // Supabase: auf An-/Abmeldung reagieren
       const sb = (store as unknown as { sb: { auth: { onAuthStateChange(cb: (e: string, s: { user: { email?: string } } | null) => void): unknown } } }).sb;
-      sb.auth.onAuthStateChange((_e, s) => setNutzer(s?.user.email ?? null));
+      sb.auth.onAuthStateChange(() => {
+        // nicht direkt in der Rückruffunktion auf Supabase zugreifen (Sperre) – deshalb verzögert
+        window.setTimeout(aktualisiereNutzer, 0);
+      });
     }
-  }, []);
+  }, [aktualisiereNutzer]);
 
   useEffect(() => {
     if (!nutzer) return;
@@ -66,7 +81,7 @@ export function App() {
   );
 
   if (nutzer === undefined) return <div className="laden">Lädt …</div>;
-  if (!nutzer) return <Login store={store} />;
+  if (!nutzer) return <Login store={store} onAngemeldet={aktualisiereNutzer} />;
 
   const seite = route[0];
   const nav: [string, string][] = [
@@ -101,13 +116,11 @@ export function App() {
               <input type="date" value={stichtag} onChange={(e) => e.target.value && setStichtag(e.target.value)} />
             </label>
             <span className="nutzer" title={nutzer}>
-              {store.modus === "demo" ? "DEMO" : nutzer}
+              {name ?? nutzer}
             </span>
-            {store.modus === "supabase" && (
-              <button className="knopf knopf-geist" onClick={() => store.abmelden()}>
-                Abmelden
-              </button>
-            )}
+            <button className="knopf knopf-geist" onClick={abmelden}>
+              Abmelden
+            </button>
           </div>
         </div>
       </header>
@@ -134,7 +147,7 @@ export function App() {
             <pre>
               {`-- ganze Firmen-Domain (nur Microsoft-Login):\ninsert into public.erlaubte_domains (domain) values ('${nutzer.split("@")[1] ?? "firma.de"}');\n-- oder nur diese eine Adresse:\ninsert into public.erlaubte_nutzer (email) values ('${nutzer}');`}
             </pre>
-            <button className="knopf knopf-zweit" onClick={() => store.abmelden()}>
+            <button className="knopf knopf-zweit" onClick={abmelden}>
               Abmelden und anders anmelden
             </button>
           </div>

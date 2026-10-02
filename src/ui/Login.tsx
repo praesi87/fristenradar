@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Store } from "../lib/store";
 import { Logo } from "./gemeinsam";
 
-export function Login({ store }: { store: Store }) {
+export function Login({ store, onAngemeldet }: { store: Store; onAngemeldet: () => void }) {
   const [email, setEmail] = useState("");
   const [passwort, setPasswort] = useState("");
   // Fehler, die Supabase nach der Microsoft-Weiterleitung in der Adresse zurückgibt (z. B. Registrierung gesperrt)
@@ -22,8 +22,11 @@ export function Login({ store }: { store: Store }) {
     setFehler(null);
     try {
       await store.anmeldenMicrosoft();
+      onAngemeldet();
     } catch (err) {
       setFehler((err as Error).message);
+    } finally {
+      // bei Supabase folgt die Weiterleitung, die Seite wird dann ohnehin neu geladen
       setLaeuft(false);
     }
   }
@@ -43,48 +46,41 @@ export function Login({ store }: { store: Store }) {
 
   return (
     <div className="login">
-      <div className="login-seite">
+      <div className="login-box">
         <Logo variante="dunkel" />
-        <div>
-          <div className="eyebrow eyebrow-hell">Technical &amp; Quality Management · Gewährleistung</div>
-          <h1>Fristenradar Rhein-Main</h1>
-          <p>Gewährleistungsfristen im Blick – Register für eigene Mandate, Marktradar für die Akquise.</p>
-        </div>
-        <small>Verträge im Griff, Projekte auf Kurs.</small>
-      </div>
-      <div className="login-form">
-        <h2>Anmelden</h2>
+        <h1>Fristenradar Rhein-Main</h1>
+        <p className="login-unter">Bitte mit Firmen-Account anmelden</p>
         <button className="knopf knopf-microsoft" onClick={microsoft} disabled={laeuft}>
-          <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true">
+          <svg viewBox="0 0 21 21" width="20" height="20" aria-hidden="true">
             <rect x="1" y="1" width="9" height="9" fill="#f25022" />
             <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
             <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
             <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
           </svg>
-          {laeuft && !mitPasswort ? "Weiterleitung zu Microsoft …" : "Mit Microsoft anmelden"}
+          {laeuft && !mitPasswort ? "Anmeldefenster geöffnet …" : "Mit Microsoft anmelden"}
         </button>
-        <small>Mit dem claim.m-Firmenkonto (Microsoft 365). Freigeschaltet ist automatisch jede Adresse der Firmen-Domain.</small>
         {fehler && <div className="meldung meldung-fehler">{fehler}</div>}
-        {!mitPasswort ? (
-          <button className="link" onClick={() => setMitPasswort(true)}>
-            Anmeldung mit E-Mail und Passwort (für Externe)
-          </button>
-        ) : (
-          <form className="login-passwort" onSubmit={anmelden}>
-            <label className="feld">
-              <span>E-Mail</span>
-              <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <label className="feld">
-              <span>Passwort</span>
-              <input type="password" autoComplete="current-password" required value={passwort} onChange={(e) => setPasswort(e.target.value)} />
-            </label>
-            <button className="knopf knopf-zweit" disabled={laeuft}>
-              {laeuft ? "Prüft …" : "Mit Passwort anmelden"}
+        {store.modus === "supabase" &&
+          (!mitPasswort ? (
+            <button className="link" onClick={() => setMitPasswort(true)}>
+              Anmeldung mit E-Mail und Passwort (für Externe)
             </button>
-            <small>Nur für einzeln freigeschaltete Zugänge, die der Admin in Supabase anlegt.</small>
-          </form>
-        )}
+          ) : (
+            <form className="login-passwort" onSubmit={anmelden}>
+              <label className="feld">
+                <span>E-Mail</span>
+                <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              </label>
+              <label className="feld">
+                <span>Passwort</span>
+                <input type="password" autoComplete="current-password" required value={passwort} onChange={(e) => setPasswort(e.target.value)} />
+              </label>
+              <button className="knopf knopf-zweit" disabled={laeuft}>
+                {laeuft ? "Prüft …" : "Mit Passwort anmelden"}
+              </button>
+              <small>Nur für einzeln freigeschaltete Zugänge, die der Admin in Supabase anlegt.</small>
+            </form>
+          ))}
       </div>
     </div>
   );
