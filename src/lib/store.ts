@@ -1,12 +1,14 @@
 /**
- * Datenzugriff. Zwei Implementierungen mit derselben Schnittstelle:
+ * Datenzugriff. Drei Implementierungen mit derselben Schnittstelle:
+ *   - SharePointStore (Standard): echte Daten in SharePoint/M365, Login per Microsoft-Popup (MSAL), Rechte über M365
  *   - SupabaseStore: echte Daten, Login, Rechte über Row Level Security (supabase/schema.sql)
- *   - DemoStore: erfundene Beispieldaten im Speicher, Login per Microsoft-Popup (MSAL)
+ *   - DemoStore: erfundene Beispieldaten im Speicher, Login per Microsoft-Popup (MSAL) – Aufruf mit ?demo
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Objekt, ObjektDaten } from "./felder";
 import { DEMO_DATEN } from "./demo";
-import { aktuellesKonto, anmeldenPopup, abmeldenLokal } from "./auth";
+import { aktuellesKonto, anmeldenPopup, abmeldenLokal, graphToken } from "./auth";
+import { SharePointStore, type ImportDatei } from "./sharepoint";
 
 export interface HistorieEintrag {
   id: number;
@@ -26,7 +28,7 @@ export interface Austragung {
 }
 
 export interface Store {
-  modus: "demo" | "supabase";
+  modus: "demo" | "supabase" | "sharepoint";
   nutzer(): Promise<string | null>;
   /** Vollständiger Name aus dem Microsoft-Konto (für die Anzeige), sonst null */
   anzeigename(): Promise<string | null>;
@@ -44,6 +46,13 @@ export interface Store {
   austragungAnlegen(name: string, notiz: string): Promise<void>;
   einstellung<T = unknown>(schluessel: string): Promise<T | null>;
   einstellungSetzen(schluessel: string, wert: unknown): Promise<void>;
+  /** optional: mehrere Änderungen in einem Schreibvorgang */
+  aendernViele?(liste: { id: number; patch: Partial<ObjektDaten> & { archiviert?: boolean } }[]): Promise<number>;
+  /** optional (SharePoint): Import-Dateien des Wochen-Tasks */
+  importDateien?(): Promise<ImportDatei[]>;
+  importDateiLesen?(id: string): Promise<string>;
+  importDateiErledigt?(id: string): Promise<void>;
+  ablageort?(): string;
 }
 
 export interface Buero {
@@ -248,8 +257,17 @@ export class DemoStore implements Store {
 }
 
 export function erstelleStore(): Store {
+  if (new URLSearchParams(window.location.search).has("demo")) return new DemoStore();
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
   if (url && key) return new SupabaseStore(url, key);
-  return new DemoStore();
+  if (import.meta.env.VITE_DATEN === "demo") return new DemoStore();
+  return new SharePointStore({
+    token: graphToken,
+    konto: aktuellesKonto,
+    anmelden: anmeldenPopup,
+    abmelden: abmeldenLokal,
+    laufwerk: import.meta.env.VITE_SP_LAUFWERK as string | undefined,
+    ordner: import.meta.env.VITE_SP_ORDNER as string | undefined,
+  });
 }

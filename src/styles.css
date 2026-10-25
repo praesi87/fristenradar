@@ -318,3 +318,8 @@ button { font-family: inherit; }
   .band { padding: 6px 14px; font-size: 12.5px; }
   .radar-hud { font-size: 10px; }
 }
+
+/* Import-Dateien aus SharePoint */
+.sp-dateien { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sp-dateien li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--linie, #ddd); }
+.sp-dateien li span { overflow-wrap: anywhere; }

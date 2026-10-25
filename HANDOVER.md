@@ -8,27 +8,31 @@ Architekturentscheidungen.
 
 ---
 
-## 0 · Aktueller Stand (02.10.2026): Login per MSAL, noch keine Datenbank
+## 0 · Aktueller Stand (25.10.2026): Login per MSAL, Daten in SharePoint
 
-**Wichtig – hat Vorrang vor den Abschnitten 3.4 bis 3.5 und der Checkliste in Abschnitt 4.**
-Das Supabase-Projekt wurde nie angelegt. Die App läuft deshalb im **Demo-Modus** mit erfundenen Beispieldaten, Änderungen gehen beim Neuladen verloren. Die Anmeldung mit dem Microsoft-Firmenkonto funktioniert trotzdem und ist live auf GitHub Pages.
+**Hat Vorrang vor allen späteren Abschnitten, die Supabase beschreiben.** Supabase bleibt als Alternative im Code (Abschnitte 3.4–3.5), wird aber nur aktiv, wenn die Variablen `SUPABASE_URL`/`SUPABASE_ANON_KEY` gesetzt sind.
 
-**Wie der Login funktioniert**
-- MSAL (`@azure/msal-browser` v3) im Popup-Fenster, wie im CAPEX-Rechnungstool. Code: `src/lib/auth.ts`.
-- Entra-App-Registrierung: Client ID `fbb2c372-0be9-42a0-889d-a821a7ced2e4`, Mandant `07cf9a53-cac1-46a9-9f4a-e9075df36c17` (nur Konten des claim.m-Mandanten kommen durch).
-- In Entra unter Authentifizierung als Plattform **Single-page application** mit den Umleitungs-URIs `https://praesi87.github.io/fristenradar/` (mit Schrägstrich am Ende, Entra vergleicht exakt) und `http://localhost:5173/` für `npm run dev`. Kein Client Secret nötig.
-- Nach der Anmeldung zeigt die Kopfzeile den Namen aus dem Microsoft-Konto, „Abmelden“ beendet nur die Sitzung in der App.
-- Die Sitzung gilt pro Browser-Tab (`sessionStorage`).
+**Wo die Daten liegen**
+- claim.m-Teamsite → Freigegebene Dokumente → `General/Akquise/Fristenradar/fristenradar-daten.json` (eine JSON-Datei, legt die App beim ersten Speichern selbst an).
+- Import-Dateien des Wochen-Tasks: `General/Akquise/Fristenradar/Import/`. Übernommene Dateien verschiebt die App nach `Import/erledigt/`.
+- Code: `src/lib/sharepoint.ts`. Adressiert wird die Bibliothek über ihre feste Laufwerks-ID (`SP_LAUFWERK_STANDARD`), weil der Punkt im Site-Namen `claim.mGmbH` Pfadadressen fehleranfällig macht. Anderer Ort: Repo-Variablen `SP_LAUFWERK` / `SP_ORDNER` setzen.
 
-**Was der Login nicht leistet**
-- Er ist nur eine Schranke vor den Demo-Daten, **keine Datensicherheit**. Das Repo ist öffentlich, alles, was die App ohne Server-Prüfung lädt, kann jeder auslesen. **Keine echten Kundendaten in die App**, bis die Datenhaltung entschieden ist.
-- Die Passwort-Anmeldung für Externe gibt es nur mit Supabase.
+**Wer Zugriff hat**
+- Microsoft prüft bei jedem Lesen/Schreiben serverseitig, ob die angemeldete Person die Datei sehen darf. Zugriff = Mitglied der claim.m-Teamsite. Das ist echter Schutz, unabhängig davon, dass der Code öffentlich ist.
+- Die App bekommt nur die Rechte der angemeldeten Person (delegierte Berechtigung `Sites.ReadWrite.All`), keine eigenen.
 
-**Offene Entscheidung: Wo liegen die echten Daten?**
-1. **Supabase** wie in den Abschnitten 3.4 bis 3.5 beschrieben. Dann greift wieder der Supabase-Login (Abschnitt 3.4b) mit Freischaltung per Domain und Rechten in der Datenbank. Die Anmeldung läuft in diesem Fall über Supabase statt über MSAL, die Entra-App braucht dafür die Umleitungs-URI von Supabase (Plattform „Web“ plus Client Secret).
-2. **SharePoint** über MSAL und Microsoft Graph, wie im CAPEX-Rechnungstool. Die Zugriffsrechte regelt dann Microsoft 365. Das ist ein Umbau der Datenschicht (`src/lib/store.ts`).
+**Einmalige Zustimmung beim ersten Login**
+- Beim ersten Anmelden fragt Microsoft, ob „Fristenradar“ auf SharePoint zugreifen darf → **Akzeptieren**.
+- Laut Microsoft braucht diese delegierte Berechtigung keine Admin-Zustimmung. Viele Firmen sperren die Nutzerzustimmung aber. Dann erscheint **„Administratorgenehmigung erforderlich“** und die App meldet das. In dem Fall muss ein Entra-Admin einmalig unter *Entra → Unternehmensanwendungen → Fristenradar → Berechtigungen → Administratorzustimmung erteilen* klicken (oder die Berechtigung in der App-Registrierung unter *API-Berechtigungen* hinzufügen und zustimmen). An der App ist dafür nichts zu ändern.
 
-**Umschalten:** Sind die Variablen `SUPABASE_URL` und `SUPABASE_ANON_KEY` im Repo gesetzt (Abschnitt 3.5), baut die App automatisch im Supabase-Modus. Ohne sie bleibt es beim Demo-Modus mit MSAL-Login. Die Abschnitte 3.4, 3.4b und 3.5 unten sind unverändert erhalten und gelten nur für den Supabase-Weg.
+**Gleichzeitiges Arbeiten, Sicherung**
+- Jede Änderung liest die Datei frisch und schreibt mit eTag-Prüfung. Speichern zwei Personen gleichzeitig, wird automatisch neu gelesen und nachgezogen, nichts geht verloren (getestet in `tests/sharepoint.test.ts`).
+- Sicherung: Versionsverlauf der Datei in SharePoint (Rechtsklick → Versionsverlauf → Wiederherstellen). Zusätzlich empfohlen: gelegentlich CSV exportieren.
+- Grenze: Graph-Upload max. 4 MB. Reicht nach grober Schätzung für einige tausend Objekte samt Historie. Die App warnt vorher.
+
+**Demo**: Adresse mit `?demo` öffnen (`…/fristenradar/?demo`), erfundene Daten, nichts wird gespeichert.
+
+**Nicht getestet** (aus der Entwicklungsumgebung kein Zugang zu echtem Graph mit dieser App-Registrierung): der echte Graph-Aufruf mit Token. Getestet ist die komplette Logik gegen ein Graph-Imitat (Anlegen, Konflikt, 403, Import-Ordner). Erster echter Test: anmelden → Einstellungen → Büro speichern → in SharePoint prüfen, ob `fristenradar-daten.json` entstanden ist.
 
 ---
 

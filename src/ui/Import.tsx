@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { ImportDatei } from "../lib/sharepoint";
 import { csvZuDatensaetzen } from "../lib/csv";
 import { FELDER, SPUR_NAME, type ObjektDaten, type Spur } from "../lib/felder";
 import { planeImport, planeZuordnung, type ImportZeile } from "../lib/abgleich";
@@ -13,16 +14,44 @@ export function ImportSeite() {
   const [plan, setPlan] = useState<ImportZeile[] | null>(null);
   const [laeuft, setLaeuft] = useState(false);
   const [text, setText] = useState("");
+  // SharePoint: CSV-Dateien, die der Wochen-Task in <Ordner>/Import abgelegt hat
+  const [spDateien, setSpDateien] = useState<ImportDatei[] | null>(null);
+  const [spFehler, setSpFehler] = useState<string | null>(null);
+  const [spQuelle, setSpQuelle] = useState<string | null>(null);
 
-  function auswerten(inhalt: string, name: string) {
+  const spLaden = useCallback(async () => {
+    if (!store.importDateien) return;
+    try {
+      setSpFehler(null);
+      setSpDateien(await store.importDateien());
+    } catch (e) {
+      setSpFehler((e as Error).message);
+    }
+  }, [store]);
+  useEffect(() => {
+    spLaden();
+  }, [spLaden]);
+
+  async function spOeffnen(d: ImportDatei) {
+    try {
+      const inhalt = await store.importDateiLesen!(d.id);
+      setSpQuelle(d.id);
+      auswerten(inhalt, d.name, "B");
+    } catch (e) {
+      melde((e as Error).message, "fehler");
+    }
+  }
+
+  function auswerten(inhalt: string, name: string, s: Spur = spur) {
     const { kopf, zeilen } = csvZuDatensaetzen(inhalt);
     if (!kopf.includes("Projekt")) return melde("Keine Spalte „Projekt“ gefunden – ist das eine Register- oder Marktradar-CSV (Semikolon)?", "fehler");
     setDateiname(name);
-    setPlan(planeImport(objekte, zeilen, kopf, spur));
+    setPlan(planeImport(objekte, zeilen, kopf, s));
   }
 
   async function datei(f: File | undefined) {
     if (!f) return;
+    setSpQuelle(null);
     auswerten(await f.text(), f.name);
   }
 
@@ -45,9 +74,21 @@ export function ImportSeite() {
       const neu = plan.filter((z) => z.aktion === "neu").map((z) => z.daten);
       const erg = plan.filter((z) => z.aktion === "ergaenzen" && z.zielId !== null);
       if (neu.length) await store.anlegenViele(neu);
-      for (const z of erg) await store.aendern(z.zielId!, z.ergaenzungen as Partial<ObjektDaten>);
+      if (erg.length && store.aendernViele) await store.aendernViele(erg.map((z) => ({ id: z.zielId!, patch: z.ergaenzungen as Partial<ObjektDaten> })));
+      else for (const z of erg) await store.aendern(z.zielId!, z.ergaenzungen as Partial<ObjektDaten>);
+      let hinweis = "";
+      if (spQuelle && store.importDateiErledigt) {
+        try {
+          await store.importDateiErledigt(spQuelle);
+          hinweis = " Die Datei liegt jetzt in Import/erledigt.";
+        } catch (e) {
+          hinweis = ` (Datei konnte nicht nach „erledigt“ verschoben werden: ${(e as Error).message})`;
+        }
+        setSpQuelle(null);
+        spLaden();
+      }
       await neuLaden();
-      melde(`${neu.length} neu angelegt, ${erg.length} ergänzt. Positionen bitte in der Übersicht über „Koordinaten ermitteln“ nachziehen.`);
+      melde(`${neu.length} neu angelegt, ${erg.length} ergänzt. Positionen bitte in der Übersicht über „Koordinaten ermitteln“ nachziehen.${hinweis}`);
       setPlan(null);
       setText("");
     } catch (e) {
@@ -69,6 +110,36 @@ export function ImportSeite() {
           <p className="unterzeile">Register-CSV, Marktradar-/Kandidaten-CSV und Rohimport aus import_abnahmen.py werden erkannt. Bestehende Einträge werden nur ergänzt, nie überschrieben.</p>
         </div>
       </div>
+
+      {store.importDateien && (
+        <div className="kasten">
+          <h2>Neue Dateien aus SharePoint</h2>
+          <p className="unterzeile">Der wöchentliche Recherche-Task legt seine Ergebnisse im SharePoint-Ordner „Import“ ab. Datei öffnen, Vorschau prüfen, übernehmen – danach wird sie nach „Import/erledigt“ verschoben.</p>
+          {spFehler ? (
+            <div className="meldung meldung-fehler">{spFehler}</div>
+          ) : spDateien === null ? (
+            <p>Lädt …</p>
+          ) : spDateien.length === 0 ? (
+            <p>Keine offenen Import-Dateien.</p>
+          ) : (
+            <ul className="sp-dateien">
+              {spDateien.map((d) => (
+                <li key={d.id}>
+                  <span>
+                    <b>{d.name}</b> · {new Date(d.geaendert).toLocaleString("de-DE")}
+                  </span>
+                  <button className="knopf knopf-zweit knopf-klein" onClick={() => (setSpur("B"), spOeffnen(d))}>
+                    Vorschau (Spur B)
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button className="link" onClick={spLaden}>
+            Liste aktualisieren
+          </button>
+        </div>
+      )}
 
       <div className="kasten">
         <div className="import-schritte">
@@ -94,7 +165,7 @@ export function ImportSeite() {
           <label className="feld feld-breit">
             <span>… oder CSV-Text einfügen</span>
             <textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Projekt;Ort;Bauherr;…" />
-            <button className="knopf knopf-zweit knopf-klein" disabled={!text.trim()} onClick={() => auswerten(text, "eingefügter Text")}>
+            <button className="knopf knopf-zweit knopf-klein" disabled={!text.trim()} onClick={() => (setSpQuelle(null), auswerten(text, "eingefügter Text"))}>
               Vorschau
             </button>
           </label>

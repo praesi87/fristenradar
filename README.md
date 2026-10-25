@@ -17,11 +17,12 @@ Historie jeder Änderung und eine Austragungsliste nach § 7 UWG.
 |---|---|---|
 | Oberfläche | React + TypeScript + Vite, statisch | – |
 | Hosting | GitHub Pages (öffentliches Repo) | kostenlos |
-| Daten, Login, Rechte | Supabase (PostgreSQL, Frankfurt), Row Level Security, Freischaltliste | kostenloser Tarif |
+| Login | Microsoft Entra (MSAL), nur claim.m-Konten | – |
+| Daten, Rechte | SharePoint (claim.m-Teamsite) über Microsoft Graph; alternativ Supabase | in M365 enthalten |
 | Karte | Leaflet + OpenStreetMap-Kacheln, Adresssuche Nominatim | kostenlos, Nutzungsbedingungen beachten |
 | Build/Deploy | GitHub Actions (Tests → Build → Pages) | kostenlos bei öffentlichem Repo |
 
-Ohne Supabase-Verbindung startet die App im **Demo-Modus** mit erfundenen Beispieldaten.
+Standard: Daten in SharePoint. Demo mit erfundenen Daten: Adresse mit `?demo` öffnen.
 
 ## Befehle
 
@@ -41,7 +42,8 @@ src/lib/fristen.ts    Fristlogik (§§ 187/188 BGB, 4/5 J., Fenster, Ampel, Prio
 src/lib/abgleich.ts   CSV-Import: Spaltenzuordnung, Dublettenerkennung, Ergänzen statt Überschreiben
 src/lib/brief.ts      Brieftext (Postbrief, nur Monat/Jahr, Sperre bei Austragung/ohne Quelle)
 src/lib/geo.ts        Nominatim-Geokodierung (1 Anfrage/s), Luftlinie, Richtung, Routenlink
-src/lib/store.ts      Datenzugriff: Supabase oder Demo
+src/lib/store.ts      Datenzugriff: SharePoint (Standard), Supabase oder Demo
+src/lib/sharepoint.ts SharePoint-Datenschicht über Microsoft Graph
 src/ui/               Oberfläche (RadarKarte, Liste, Objekt, Import, Austragungen, Einstellungen, Login)
 supabase/schema.sql   Datenbank: Tabellen, Constraints, RLS, Audit-Trigger – im Supabase-SQL-Editor ausführen
 tests/                Vitest; schema.test.ts prüft das SQL in echtem PostgreSQL (PGlite)

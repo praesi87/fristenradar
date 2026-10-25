@@ -6,7 +6,14 @@
  *   https://praesi87.github.io/fristenradar/   (mit Schrägstrich am Ende, Entra vergleicht exakt)
  *   http://localhost:5173/                     (nur für npm run dev)
  */
-import { PublicClientApplication, BrowserAuthError, type AccountInfo } from "@azure/msal-browser";
+import { PublicClientApplication, BrowserAuthError, InteractionRequiredAuthError, type AccountInfo } from "@azure/msal-browser";
+
+/**
+ * Zugriff auf SharePoint (Microsoft Graph). Delegierte Berechtigung: Die App darf nur, was die angemeldete Person
+ * ohnehin darf. Laut Microsoft ohne Admin-Zustimmung möglich, sofern der Mandant Nutzern die Zustimmung erlaubt.
+ * Ist das gesperrt, erscheint bei der Anmeldung „Administratorgenehmigung erforderlich“ – siehe HANDOVER.md.
+ */
+export const GRAPH_SCOPES = ["User.Read", "Sites.ReadWrite.All"];
 
 const CLIENT_ID = "fbb2c372-0be9-42a0-889d-a821a7ced2e4";
 const TENANT_ID = "07cf9a53-cac1-46a9-9f4a-e9075df36c17";
@@ -51,19 +58,47 @@ export async function aktuellesKonto(): Promise<Konto | null> {
   return a ? alsKonto(a) : null;
 }
 
+function anmeldeFehler(e: unknown): Error {
+  if (e instanceof BrowserAuthError) {
+    if (e.errorCode === "user_cancelled") return new Error("Anmeldung abgebrochen.");
+    if (e.errorCode === "popup_window_error" || e.errorCode === "empty_window_error")
+      return new Error("Das Anmelde-Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben und erneut versuchen.");
+  }
+  const m = (e as Error)?.message ?? String(e);
+  // AADSTS65001 = keine Zustimmung, AADSTS90094/90095 = Administratorgenehmigung erforderlich
+  if (/AADSTS(65001|90094|90095)|admin(istrator)?.{0,20}(approval|consent)/i.test(m))
+    return new Error(
+      "Microsoft verlangt für den SharePoint-Zugriff eine Freigabe durch die IT (Administratorgenehmigung). Bitte die IT bitten, der App „Fristenradar“ die Berechtigung „Sites.ReadWrite.All (delegiert)“ zu erteilen – Details in HANDOVER.md, Abschnitt 0.",
+    );
+  return new Error(`Microsoft-Anmeldung fehlgeschlagen: ${m}`);
+}
+
 export async function anmeldenPopup(): Promise<Konto> {
   const app = await msal();
   try {
-    const r = await app.loginPopup({ scopes: ["User.Read"], prompt: "select_account" });
+    const r = await app.loginPopup({ scopes: GRAPH_SCOPES, prompt: "select_account" });
     app.setActiveAccount(r.account);
     return alsKonto(r.account);
   } catch (e) {
-    if (e instanceof BrowserAuthError) {
-      if (e.errorCode === "user_cancelled") throw new Error("Anmeldung abgebrochen.");
-      if (e.errorCode === "popup_window_error" || e.errorCode === "empty_window_error")
-        throw new Error("Das Anmelde-Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben und erneut versuchen.");
+    throw anmeldeFehler(e);
+  }
+}
+
+/** Zugriffstoken für Microsoft Graph. Still aus dem Cache, sonst einmal per Popup (z. B. nach Ablauf der Sitzung). */
+export async function graphToken(): Promise<string> {
+  const app = await msal();
+  const account = app.getActiveAccount() ?? app.getAllAccounts()[0];
+  if (!account) throw new Error("Nicht angemeldet. Bitte neu anmelden.");
+  try {
+    return (await app.acquireTokenSilent({ scopes: GRAPH_SCOPES, account })).accessToken;
+  } catch (e) {
+    if (!(e instanceof InteractionRequiredAuthError)) throw anmeldeFehler(e);
+    try {
+      const r = await app.acquireTokenPopup({ scopes: GRAPH_SCOPES, account });
+      return r.accessToken;
+    } catch (e2) {
+      throw anmeldeFehler(e2);
     }
-    throw new Error(`Microsoft-Anmeldung fehlgeschlagen: ${(e as Error).message}`);
   }
 }
 

@@ -126,7 +126,7 @@ export function App() {
       </header>
       {store.modus === "demo" && (
         <div className="band band-demo">
-          <b>Demo-Modus:</b> erfundene Beispieldaten, Änderungen gehen beim Neuladen verloren. Für echte Daten Supabase verbinden (siehe HANDOVER.md).
+          <b>Demo-Modus:</b> erfundene Beispieldaten, Änderungen gehen beim Neuladen verloren. Echte Daten: Seite ohne „?demo“ in der Adresse öffnen.
         </div>
       )}
       {stichtag !== heute() && (
@@ -141,12 +141,20 @@ export function App() {
         {frei === false ? (
           <div className="kasten kasten-fehler">
             <h2>Nicht freigeschaltet</h2>
-            <p>
-              Du bist als <b>{nutzer}</b> angemeldet, hast aber keinen Zugriff. Mögliche Gründe: Du hast dich nicht mit dem Microsoft-Firmenkonto angemeldet, oder die Domain ist noch nicht freigeschaltet. Ein Admin kann das im Supabase-SQL-Editor nachholen:
-            </p>
-            <pre>
-              {`-- ganze Firmen-Domain (nur Microsoft-Login):\ninsert into public.erlaubte_domains (domain) values ('${nutzer.split("@")[1] ?? "firma.de"}');\n-- oder nur diese eine Adresse:\ninsert into public.erlaubte_nutzer (email) values ('${nutzer}');`}
-            </pre>
+            {store.modus === "sharepoint" ? (
+              <p>
+                Du bist als <b>{nutzer}</b> angemeldet, aber SharePoint verweigert den Zugriff auf den Datenordner. Zugriff hat, wer Mitglied der claim.m-Teamsite ist. Ablageort: <code>{store.ablageort?.()}</code>
+              </p>
+            ) : (
+              <>
+                <p>
+                  Du bist als <b>{nutzer}</b> angemeldet, hast aber keinen Zugriff. Mögliche Gründe: Du hast dich nicht mit dem Microsoft-Firmenkonto angemeldet, oder die Domain ist noch nicht freigeschaltet. Ein Admin kann das im Supabase-SQL-Editor nachholen:
+                </p>
+                <pre>
+                  {`-- ganze Firmen-Domain (nur Microsoft-Login):\ninsert into public.erlaubte_domains (domain) values ('${nutzer.split("@")[1] ?? "firma.de"}');\n-- oder nur diese eine Adresse:\ninsert into public.erlaubte_nutzer (email) values ('${nutzer}');`}
+                </pre>
+              </>
+            )}
             <button className="knopf knopf-zweit" onClick={abmelden}>
               Abmelden und anders anmelden
             </button>

@@ -77,8 +77,10 @@ export function EinstellungenSeite() {
         <h2>Modus</h2>
         <p>
           {store.modus === "demo"
-            ? "Demo-Modus: keine Datenbank verbunden. In GitHub unter Settings → Variables die Werte SUPABASE_URL und SUPABASE_ANON_KEY setzen und neu deployen."
-            : "Verbunden mit Supabase. Rechte werden in der Datenbank geprüft (Freischaltliste erlaubte_nutzer)."}
+            ? "Demo-Modus: erfundene Daten, nichts wird gespeichert."
+            : store.modus === "sharepoint"
+              ? `Daten in SharePoint: ${store.ablageort?.() ?? ""}. Zugriff regelt Microsoft 365 (Mitglieder der Teamsite). Ältere Stände über den Versionsverlauf der Datei in SharePoint.`
+              : "Verbunden mit Supabase. Rechte werden in der Datenbank geprüft (Freischaltliste erlaubte_nutzer)."}
         </p>
       </div>
     </section>

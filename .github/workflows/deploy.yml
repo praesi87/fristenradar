@@ -2,7 +2,7 @@
 # Einmalig einstellen: Repo → Settings → Pages → Source: "GitHub Actions".
 # Für echte Daten: Repo → Settings → Secrets and variables → Actions → Variables:
 #   SUPABASE_URL, SUPABASE_ANON_KEY  (beide sind für den Browser bestimmt, keine Geheimnisse)
-# Ohne diese Variablen läuft die Seite im Demo-Modus.
+# Ohne diese Variablen speichert die App in SharePoint (src/lib/sharepoint.ts). Demo: Adresse mit ?demo öffnen.
 name: Deploy
 
 on:
@@ -38,6 +38,9 @@ jobs:
           BASE_PATH: ${{ vars.BASE_PATH || (endsWith(github.event.repository.name, '.github.io') && '/' || format('/{0}/', github.event.repository.name)) }}
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          # Datenablage SharePoint (Standard). Nur setzen, wenn ein anderer Ort gewünscht ist:
+          VITE_SP_LAUFWERK: ${{ vars.SP_LAUFWERK }}
+          VITE_SP_ORDNER: ${{ vars.SP_ORDNER }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
