@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { erstelleStore, type Austragung, type Buero } from "../lib/store";
+import { erstelleStore, STANDARD_BUERO, type Austragung, type Buero } from "../lib/store";
 import type { Objekt } from "../lib/felder";
 import { heute, deDatum } from "../lib/fristen";
 import { Kontext, useRoute, geheZu, type AppKontext } from "./kontext";
@@ -25,7 +25,10 @@ export function App() {
   const [meldung, setMeldung] = useState<{ text: string; art: "ok" | "fehler" } | null>(null);
   const route = useRoute();
   const routeKey = route.join("/");
-  useEffect(() => window.scrollTo(0, 0), [routeKey]);
+  // Block statt Ausdruck: neuere Chrome-Versionen geben bei scrollTo ein Promise zurück, das React als Aufräumfunktion missversteht (Absturz)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [routeKey]);
 
   const melde = useCallback((text: string, art: "ok" | "fehler" = "ok") => {
     setMeldung({ text, art });
@@ -37,7 +40,7 @@ export function App() {
       const [o, a, b] = await Promise.all([store.liste(), store.austragungen(), store.einstellung<Buero>("buero")]);
       setObjekte(o);
       setAustragungen(a);
-      setBuero(b);
+      setBuero(b ?? STANDARD_BUERO);
       setLadefehler(null);
     } catch (e) {
       setLadefehler((e as Error).message);

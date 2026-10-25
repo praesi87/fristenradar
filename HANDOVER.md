@@ -34,6 +34,8 @@ Architekturentscheidungen.
 - Sicherung: Versionsverlauf der Datei in SharePoint (Rechtsklick → Versionsverlauf → Wiederherstellen). Zusätzlich empfohlen: gelegentlich CSV exportieren.
 - Grenze: Graph-Upload max. 4 MB. Reicht nach grober Schätzung für einige tausend Objekte samt Historie. Die App warnt vorher.
 
+**Radarzentrum**: Standard ist das Büro Spaces „The Docks“, Lindleystraße 8A, 60314 Frankfurt (`STANDARD_BUERO` in `src/lib/store.ts`). Unter Einstellungen überschreibbar.
+
 **Demo**: Adresse mit `?demo` öffnen (`…/fristenradar/?demo`), erfundene Daten, nichts wird gespeichert.
 
 **Nicht getestet** (aus der Entwicklungsumgebung kein Zugang zu echtem Graph mit dieser App-Registrierung): der echte Graph-Aufruf mit Token. Getestet ist die komplette Logik gegen ein Graph-Imitat (Anlegen, Konflikt, 403, Import-Ordner). Erster echter Test: anmelden → Einstellungen → Büro speichern → in SharePoint prüfen, ob `fristenradar-daten.json` entstanden ist.

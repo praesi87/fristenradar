@@ -61,6 +61,10 @@ export interface Buero {
   lon: number;
 }
 
+/** Standard-Radarzentrum: aktuelles claim.m-Büro (Spaces „The Docks“). Koordinaten: Nominatim, Gebäude Lindleystraße 8a.
+ *  Gilt, solange unter Einstellungen nichts anderes gespeichert ist. */
+export const STANDARD_BUERO: Buero = { adresse: "Spaces The Docks, Lindleystraße 8A, 60314 Frankfurt am Main", lat: 50.1114982, lon: 8.7165563 };
+
 // ------------------------------------------------------------------ Supabase
 
 function fehler(e: { message: string; code?: string } | null, kontext: string): void {
@@ -174,7 +178,7 @@ export class DemoStore implements Store {
   private naechsteId: number;
   private user: string | null = null;
   private name: string | null = null;
-  private einst: Record<string, unknown> = { buero: { adresse: "BEISPIEL-Büro Frankfurt am Main (Innenstadt) – in den Einstellungen ändern", lat: 50.1109, lon: 8.6821 } };
+  private einst: Record<string, unknown> = { buero: STANDARD_BUERO };
   constructor(start: ObjektDaten[] = DEMO_DATEN) {
     const jetzt = new Date().toISOString();
     this.objekte = start.map((o, i) => ({ ...o, id: i + 1, archiviert: false, erstellt_am: jetzt, erstellt_von: "demo", geaendert_am: jetzt, geaendert_von: "demo" }));

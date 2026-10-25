@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
 import { App } from "./ui/App";
+import { Fehlergrenze } from "./ui/Fehlergrenze";
 import { istAnmeldePopup } from "./lib/auth";
 
 const wurzel = document.getElementById("root")!;
@@ -13,7 +14,9 @@ if (istAnmeldePopup()) {
 } else {
   createRoot(wurzel).render(
     <StrictMode>
-      <App />
+      <Fehlergrenze>
+        <App />
+      </Fehlergrenze>
     </StrictMode>,
   );
 }
