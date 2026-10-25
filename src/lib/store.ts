@@ -7,7 +7,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Objekt, ObjektDaten } from "./felder";
 import { DEMO_DATEN } from "./demo";
-import { aktuellesKonto, anmeldenPopup, abmeldenLokal, graphToken } from "./auth";
+import { aktuellesKonto, anmeldenPopup, abmeldenLokal, graphToken, GRAPH_SCOPES } from "./auth";
 import { SharePointStore, type ImportDatei } from "./sharepoint";
 
 export interface HistorieEintrag {
@@ -265,7 +265,7 @@ export function erstelleStore(): Store {
   return new SharePointStore({
     token: graphToken,
     konto: aktuellesKonto,
-    anmelden: anmeldenPopup,
+    anmelden: () => anmeldenPopup(GRAPH_SCOPES),
     abmelden: abmeldenLokal,
     laufwerk: import.meta.env.VITE_SP_LAUFWERK as string | undefined,
     ordner: import.meta.env.VITE_SP_ORDNER as string | undefined,

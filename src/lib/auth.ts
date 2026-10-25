@@ -60,7 +60,10 @@ export async function aktuellesKonto(): Promise<Konto | null> {
 
 function anmeldeFehler(e: unknown): Error {
   if (e instanceof BrowserAuthError) {
-    if (e.errorCode === "user_cancelled") return new Error("Anmeldung abgebrochen.");
+    if (e.errorCode === "user_cancelled")
+      return new Error(
+        "Anmeldung abgebrochen. Hat Microsoft „Administratorgenehmigung erforderlich“ angezeigt? Dann muss die IT der App einmalig zustimmen (Link für die IT: HANDOVER.md, Abschnitt 0). Bis dahin läuft nur die Demo: Adresse mit ?demo öffnen.",
+      );
     if (e.errorCode === "popup_window_error" || e.errorCode === "empty_window_error")
       return new Error("Das Anmelde-Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben und erneut versuchen.");
   }
@@ -73,10 +76,11 @@ function anmeldeFehler(e: unknown): Error {
   return new Error(`Microsoft-Anmeldung fehlgeschlagen: ${m}`);
 }
 
-export async function anmeldenPopup(): Promise<Konto> {
+/** Anmeldung. Demo braucht nur User.Read, der SharePoint-Modus zusätzlich Sites.ReadWrite.All (eine Zustimmung beim ersten Mal). */
+export async function anmeldenPopup(scopes: string[] = ["User.Read"]): Promise<Konto> {
   const app = await msal();
   try {
-    const r = await app.loginPopup({ scopes: GRAPH_SCOPES, prompt: "select_account" });
+    const r = await app.loginPopup({ scopes, prompt: "select_account" });
     app.setActiveAccount(r.account);
     return alsKonto(r.account);
   } catch (e) {

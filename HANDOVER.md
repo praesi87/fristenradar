@@ -23,7 +23,11 @@ Architekturentscheidungen.
 
 **Einmalige Zustimmung beim ersten Login**
 - Beim ersten Anmelden fragt Microsoft, ob „Fristenradar“ auf SharePoint zugreifen darf → **Akzeptieren**.
-- Laut Microsoft braucht diese delegierte Berechtigung keine Admin-Zustimmung. Viele Firmen sperren die Nutzerzustimmung aber. Dann erscheint **„Administratorgenehmigung erforderlich“** und die App meldet das. In dem Fall muss ein Entra-Admin einmalig unter *Entra → Unternehmensanwendungen → Fristenradar → Berechtigungen → Administratorzustimmung erteilen* klicken (oder die Berechtigung in der App-Registrierung unter *API-Berechtigungen* hinzufügen und zustimmen). An der App ist dafür nichts zu ändern.
+- **Stand 25.10.2026: Der claim.m-Mandant sperrt die Nutzerzustimmung.** Beim Login erscheint „Administratorgenehmigung erforderlich“. Ein Entra-Admin muss einmalig zustimmen, danach funktioniert es für alle ohne weitere Abfrage.
+- **Für den Admin (ca. 2 Minuten), sicherer Weg im Portal:** entra.microsoft.com → *Anwendungen → App-Registrierungen → Alle Anwendungen → Fristenradar* (Client-ID `fbb2c372-0be9-42a0-889d-a821a7ced2e4`) → *API-Berechtigungen → Berechtigung hinzufügen → Microsoft Graph → Delegierte Berechtigungen → `Sites.ReadWrite.All`* → *Hinzufügen* → **„Administratorzustimmung für claim.m GmbH erteilen“** → Ja.
+- Alternativ als Link (ein Admin öffnet ihn und stimmt zu; nicht live getestet):
+  `https://login.microsoftonline.com/07cf9a53-cac1-46a9-9f4a-e9075df36c17/v2.0/adminconsent?client_id=fbb2c372-0be9-42a0-889d-a821a7ced2e4&scope=https://graph.microsoft.com/User.Read%20https://graph.microsoft.com/Sites.ReadWrite.All&redirect_uri=https://praesi87.github.io/fristenradar/`
+- Bis dahin läuft nur die Demo (`?demo`), die braucht keine Zusatzberechtigung.
 
 **Gleichzeitiges Arbeiten, Sicherung**
 - Jede Änderung liest die Datei frisch und schreibt mit eTag-Prüfung. Speichern zwei Personen gleichzeitig, wird automatisch neu gelesen und nachgezogen, nichts geht verloren (getestet in `tests/sharepoint.test.ts`).
