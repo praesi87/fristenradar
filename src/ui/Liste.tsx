@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SPUR_NAME, STATUS, type Spur } from "../lib/felder";
 import { deDatum, fensterEnde } from "../lib/fristen";
 import { exportCsv } from "../lib/export";
@@ -18,6 +18,18 @@ export function Liste({ spur }: { spur: Spur }) {
   const [umfang, setUmfang] = useState<"fenster" | "alle" | "archiv">(() => lokal(`umfang.${spur}`, "fenster"));
   const [sort, setSort] = useState<{ k: Sortierung; dir: 1 | -1 }>({ k: "fristende", dir: 1 });
   const [geoLaeuft, setGeoLaeuft] = useState<string | null>(null);
+  // Tippt der Nutzer gerade im Suchfeld? Läuft 700 ms nach dem letzten Anschlag aus.
+  const [tippt, setTippt] = useState(false);
+
+  useEffect(() => {
+    if (!suche.trim()) {
+      setTippt(false);
+      return;
+    }
+    setTippt(true);
+    const t = window.setTimeout(() => setTippt(false), 700);
+    return () => window.clearTimeout(t);
+  }, [suche]);
 
   const alle = useMemo(() => berechneZeilen(objekte.filter((o) => o.spur === spur), stichtag, buero), [objekte, spur, stichtag, buero]);
   const aktiv = alle.filter((z) => !z.o.archiviert && z.f.rheinMain);
@@ -101,6 +113,10 @@ export function Liste({ spur }: { spur: Spur }) {
 
   const kartenZeilen = sortiert.filter((z) => z.f.rheinMain || umfang !== "fenster");
 
+  // Empfangswellen im Radar: während der OSM-Adresssuche und solange im Suchfeld getippt wird
+  const suchlauf = geoLaeuft ?? (tippt ? `„${suche.trim()}“ · ${gefiltert.length} Treffer` : null);
+  const suchlaufTitel = geoLaeuft ? "ADRESSSUCHE LÄUFT" : "SUCHE LÄUFT";
+
   return (
     <section>
       <div className="seitenkopf">
@@ -135,7 +151,7 @@ export function Liste({ spur }: { spur: Spur }) {
         </div>
       )}
 
-      <RadarKarte zeilen={kartenZeilen} buero={buero} />
+      <RadarKarte zeilen={kartenZeilen} buero={buero} suchlauf={suchlauf} suchlaufTitel={suchlaufTitel} />
 
       <div className="karten-leiste">
         {!buero && (

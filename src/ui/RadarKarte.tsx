@@ -188,14 +188,22 @@ interface Props {
   /** Detailansicht: ein verschiebbares Fähnchen */
   ziehbar?: boolean;
   onVerschoben?(lat: number, lon: number): void;
+  /**
+   * Läuft gerade eine Suche? null = nein. Ein String schaltet Empfangswellen und den Hinweis im Radar ein
+   * und wird als Detail dahinter angezeigt (z. B. "3/12: Sporthalle Feldbergschule").
+   */
+  suchlauf?: string | null;
+  /** Überschrift des Suchhinweises, Standard "SUCHE LÄUFT" */
+  suchlaufTitel?: string;
 }
 
-export function RadarKarte({ zeilen, buero, hoehe = 520, ziehbar = false, onVerschoben }: Props) {
+export function RadarKarte({ zeilen, buero, hoehe = 520, ziehbar = false, onVerschoben, suchlauf = null, suchlaufTitel = "SUCHE LÄUFT" }: Props) {
   const div = useRef<HTMLDivElement>(null);
   const karte = useRef<L.Map | null>(null);
   const ebene = useRef<L.LayerGroup | null>(null);
   const ringe = useRef<L.LayerGroup | null>(null);
   const sweepRef = useRef<HTMLDivElement>(null);
+  const wellenRef = useRef<HTMLDivElement>(null);
   const gefittet = useRef(0);
   const [labels, setLabels] = useState<boolean>(() => lokal("karte.labels", true));
   const [sweep, setSweep] = useState<boolean>(() => lokal("karte.sweep", !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches));
@@ -296,6 +304,24 @@ export function RadarKarte({ zeilen, buero, hoehe = 520, ziehbar = false, onVers
     };
   }, [buero, sweep]);
 
+  // Empfangswellen am Büro ausrichten – ohne Büroadresse in der Kartenmitte
+  useEffect(() => {
+    const m = karte.current;
+    if (!m || !suchlauf) return;
+    const setze = () => {
+      const el = wellenRef.current;
+      if (!el) return;
+      const p = buero ? m.latLngToContainerPoint([buero.lat, buero.lon]) : m.latLngToContainerPoint(m.getCenter());
+      el.style.left = `${p.x}px`;
+      el.style.top = `${p.y}px`;
+    };
+    setze();
+    m.on("move zoom resize", setze);
+    return () => {
+      m.off("move zoom resize", setze);
+    };
+  }, [buero, suchlauf]);
+
   const ohnePos = zeilen.filter((z) => z.o.lat === null || z.o.lon === null).length;
 
   return (
@@ -305,6 +331,19 @@ export function RadarKarte({ zeilen, buero, hoehe = 520, ziehbar = false, onVers
       {sweep && buero && !ziehbar && (
         <div ref={sweepRef} className="radar-sweep" aria-hidden="true">
           <div />
+        </div>
+      )}
+      {suchlauf && !ziehbar && (
+        <div ref={wellenRef} className="radar-wellen" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+      )}
+      {suchlauf && !ziehbar && (
+        <div className="radar-suchhinweis" role="status" aria-live="polite">
+          <b>{suchlaufTitel}</b>
+          {suchlauf.trim() !== "" && <span className="detail">{suchlauf}</span>}
         </div>
       )}
       {!ziehbar && (
