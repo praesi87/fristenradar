@@ -181,9 +181,12 @@ button { font-family: inherit; }
 @media (max-width: 1000px) { .objekt-raster { grid-template-columns: 1fr; } }
 .gruppe { border: 0; border-top: 2px solid var(--anthrazit); padding: 12px 0 6px; margin: 0 0 14px; }
 .gruppe legend { font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rot); padding-right: 8px; }
-.felder { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 16px; }
+.felder { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 16px; align-items: stretch; }
 .feld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .feld > span { font-weight: 700; }
+/* Eingabefelder einer Zeile auf gleiche Höhe bringen, auch wenn eine Beschriftung umbricht:
+   das Feld füllt die Zeilenhöhe, das Bedienelement wird nach unten geschoben. */
+.feld > input, .feld > select, .feld > textarea { margin-top: auto; }
 .feld small { color: var(--grau); font-size: 11.5px; }
 .feld-breit { grid-column: 1 / -1; }
 .feld textarea { resize: vertical; }
@@ -247,6 +250,30 @@ button { font-family: inherit; }
   animation: sweep 6s linear infinite; }
 @keyframes sweep { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .radar-sweep > div { animation: none; } }
+
+/* Empfangswellen: laufen, solange eine Suche aktiv ist (Adresssuche über OSM oder Tippen im Suchfeld). */
+.radar-wellen { position: absolute; width: 0; height: 0; z-index: 403; pointer-events: none; }
+.radar-wellen i { position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 50%;
+  border: 1.5px solid var(--radar-gruen); opacity: 0; animation: radarwelle 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+.radar-wellen i:nth-child(2) { animation-delay: 0.8s; }
+.radar-wellen i:nth-child(3) { animation-delay: 1.6s; }
+@keyframes radarwelle {
+  0%   { width: 0; height: 0; margin: 0; opacity: 0.85; }
+  70%  { opacity: 0.22; }
+  100% { width: 440px; height: 440px; margin: -220px 0 0 -220px; opacity: 0; }
+}
+.radar-suchhinweis { position: absolute; left: 10px; bottom: 10px; z-index: 800; display: flex; align-items: center; gap: 7px;
+  background: rgba(15, 17, 18, 0.86); border: 1px solid rgba(75, 227, 122, 0.45); color: var(--radar-gruen);
+  font: 11px/1.4 var(--mono); letter-spacing: 0.04em; padding: 6px 10px; max-width: calc(100% - 20px); }
+.radar-suchhinweis b { font-weight: 700; }
+.radar-suchhinweis .detail { color: #d6d6d6; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radar-suchhinweis::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--radar-gruen);
+  animation: radarpuls 1.1s ease-in-out infinite; }
+@keyframes radarpuls { 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) {
+  .radar-wellen i { animation: none; opacity: 0; }
+  .radar-suchhinweis::before { animation: none; }
+}
 .radar-ring { stroke: var(--radar-gruen); stroke-opacity: 0.4; stroke-width: 1; stroke-dasharray: 4 6; }
 .radar-ringlabel { color: var(--radar-gruen); font: 10px var(--mono); opacity: 0.75; white-space: nowrap; transform: translate(4px, -6px); }
 .radar-zentrum .rz { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border: 2px solid var(--rot); background: rgba(237, 28, 36, 0.25); transform: rotate(45deg); }
