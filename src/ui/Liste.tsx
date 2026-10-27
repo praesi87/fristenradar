@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { SPUR_NAME, STATUS, type Spur } from "../lib/felder";
 import { deDatum, fensterEnde } from "../lib/fristen";
 import { exportCsv } from "../lib/export";
-import { geoAbfrage, geokodiere } from "../lib/geo";
 import { useApp, geheZu, herunterladen, lokal, lokalSetzen } from "./kontext";
 import { Ampel, OEFF, berechneZeilen, kmText, type Zeile } from "./gemeinsam";
 import { RadarKarte } from "./RadarKarte";
@@ -10,14 +9,13 @@ import { RadarKarte } from "./RadarKarte";
 type Sortierung = "fristende" | "projekt" | "ort" | "km" | "prio" | "datum";
 
 export function Liste({ spur }: { spur: Spur }) {
-  const { objekte, stichtag, buero, store, neuLaden, melde } = useApp();
+  const { objekte, stichtag, buero, hintergrund, positionenErmitteln } = useApp();
   const [suche, setSuche] = useState("");
   const [vertrag, setVertrag] = useState("");
   const [typ, setTyp] = useState("");
   const [status, setStatus] = useState("");
   const [umfang, setUmfang] = useState<"fenster" | "alle" | "archiv">(() => lokal(`umfang.${spur}`, "fenster"));
   const [sort, setSort] = useState<{ k: Sortierung; dir: 1 | -1 }>({ k: "fristende", dir: 1 });
-  const [geoLaeuft, setGeoLaeuft] = useState<string | null>(null);
   // Tippt der Nutzer gerade im Suchfeld? Läuft 700 ms nach dem letzten Anschlag aus.
   const [tippt, setTippt] = useState(false);
 
@@ -70,7 +68,8 @@ export function Liste({ spur }: { spur: Spur }) {
     return (x > y ? 1 : x < y ? -1 : 0) * sort.dir;
   });
 
-  const ohnePos = aktiv.filter((z) => (z.o.lat === null || z.o.lon === null) && (z.o.ort || z.o.plz));
+  // alle nicht archivierten Objekte dieser Spur, unabhängig von Filter und Fenster – die Automatik sucht sie im Hintergrund
+  const ohnePos = alle.filter((z) => !z.o.archiviert && (z.o.lat === null || z.o.lon === null) && (z.o.ort || z.o.plz));
   const statusListe = [...new Set([...STATUS[spur], ...alle.map((z) => z.o.status).filter(Boolean)])];
 
   function th(k: Sortierung, label: string) {
@@ -84,29 +83,6 @@ export function Liste({ spur }: { spur: Spur }) {
     );
   }
 
-  async function koordinatenErmitteln() {
-    let ok = 0;
-    let fehl = 0;
-    for (let i = 0; i < ohnePos.length; i++) {
-      const o = ohnePos[i].o;
-      setGeoLaeuft(`${i + 1}/${ohnePos.length}: ${o.projekt}`);
-      try {
-        const t = await geokodiere(o);
-        if (t) {
-          await store.aendern(o.id, { lat: t.lat, lon: t.lon, geo_genauigkeit: t.genauigkeit, geo_abfrage: geoAbfrage(o) });
-          ok++;
-        } else fehl++;
-      } catch (e) {
-        fehl++;
-        melde((e as Error).message, "fehler");
-        break;
-      }
-    }
-    setGeoLaeuft(null);
-    await neuLaden();
-    melde(`${ok} Positionen ermittelt${fehl ? `, ${fehl} nicht gefunden` : ""}.`);
-  }
-
   function exportieren() {
     herunterladen(`fristenradar-${spur === "A" ? "register" : "marktradar"}-${stichtag}.csv`, exportCsv(sortiert.map((z) => z.o), stichtag, buero), "text/csv;charset=utf-8");
   }
@@ -114,8 +90,8 @@ export function Liste({ spur }: { spur: Spur }) {
   const kartenZeilen = sortiert.filter((z) => z.f.rheinMain || umfang !== "fenster");
 
   // Empfangswellen im Radar: während der OSM-Adresssuche und solange im Suchfeld getippt wird
-  const suchlauf = geoLaeuft ?? (tippt ? `„${suche.trim()}“ · ${gefiltert.length} Treffer` : null);
-  const suchlaufTitel = geoLaeuft ? "ADRESSSUCHE LÄUFT" : "SUCHE LÄUFT";
+  const suchlauf = hintergrund ?? (tippt ? `„${suche.trim()}“ · ${gefiltert.length} Treffer` : null);
+  const suchlaufTitel = hintergrund ? "AUTOMATIK LÄUFT" : "SUCHE LÄUFT";
 
   return (
     <section>
@@ -159,16 +135,16 @@ export function Liste({ spur }: { spur: Spur }) {
             Keine Büroadresse hinterlegt – <a href="#/einstellungen">in den Einstellungen setzen</a>, dann erscheinen Radarringe und Entfernungen.
           </span>
         )}
-        {ohnePos.length > 0 && !geoLaeuft && (
+        {ohnePos.length > 0 && !hintergrund && (
           <span>
-            {ohnePos.length} Objekt(e) ohne Position.{" "}
-            <button className="link" onClick={koordinatenErmitteln}>
-              Koordinaten über OpenStreetMap ermitteln
-            </button>{" "}
-            (ca. {Math.ceil(ohnePos.length * 1.1 * 2)} s)
+            {ohnePos.length} Objekt(e) ohne Fähnchen (Adresse nicht gefunden oder Suche unterbrochen). In den Details Adresse ergänzen oder Fähnchen setzen, oder{" "}
+            <button className="link" onClick={() => positionenErmitteln(true)}>
+              erneut suchen
+            </button>
+            .
           </span>
         )}
-        {geoLaeuft && <span className="laeuft">Adresssuche läuft … {geoLaeuft}</span>}
+        {hintergrund && <span className="laeuft">{hintergrund}</span>}
       </div>
 
       <div className="werkzeuge">

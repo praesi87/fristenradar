@@ -8,7 +8,7 @@ import { useApp } from "./kontext";
 const AKTION_TEXT: Record<string, string> = { neu: "neu anlegen", ergaenzen: "ergänzen", unveraendert: "unverändert", ueberspringen: "überspringen", fehler: "Fehler" };
 
 export function ImportSeite() {
-  const { objekte, store, neuLaden, melde } = useApp();
+  const { objekte, store, neuLaden, melde, positionenErmitteln } = useApp();
   const [spur, setSpur] = useState<Spur>("B");
   const [dateiname, setDateiname] = useState("");
   const [plan, setPlan] = useState<ImportZeile[] | null>(null);
@@ -88,7 +88,8 @@ export function ImportSeite() {
         spLaden();
       }
       await neuLaden();
-      melde(`${neu.length} neu angelegt, ${erg.length} ergänzt. Positionen bitte in der Übersicht über „Koordinaten ermitteln“ nachziehen.${hinweis}`);
+      melde(`${neu.length} neu angelegt, ${erg.length} ergänzt. Die Fähnchen werden jetzt automatisch gesetzt.${hinweis}`);
+      void positionenErmitteln();
       setPlan(null);
       setText("");
     } catch (e) {
@@ -114,7 +115,7 @@ export function ImportSeite() {
       {store.importDateien && (
         <div className="kasten">
           <h2>Neue Dateien aus SharePoint</h2>
-          <p className="unterzeile">Der wöchentliche Recherche-Task legt seine Ergebnisse im SharePoint-Ordner „Import“ ab. Datei öffnen, Vorschau prüfen, übernehmen – danach wird sie nach „Import/erledigt“ verschoben.</p>
+          <p className="unterzeile">Der wöchentliche Recherche-Task legt seine Ergebnisse im SharePoint-Ordner „Import“ ab. Die App übernimmt sie beim Öffnen automatisch (nur ergänzen, nie überschreiben) und verschiebt sie nach „Import/erledigt“. Was hier noch steht, war beim Öffnen noch nicht da oder konnte nicht automatisch übernommen werden – Datei öffnen, Vorschau prüfen, übernehmen.</p>
           {spFehler ? (
             <div className="meldung meldung-fehler">{spFehler}</div>
           ) : spDateien === null ? (
