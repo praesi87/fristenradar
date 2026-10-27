@@ -111,6 +111,8 @@ button { font-family: inherit; }
 .band { padding: 8px 20px; font-size: 13.5px; text-align: center; }
 .band-demo { background: var(--rot); color: var(--weiss); }
 .band-warn { background: var(--warn-soft); color: var(--tinte); }
+.band-ok { background: var(--ok-soft); color: var(--tinte); }
+.band-info { background: var(--past-soft); color: var(--tinte); }
 
 .haupt { max-width: 1400px; margin: 0 auto; padding: 26px 20px 60px; }
 .fuss { max-width: 1400px; margin: 0 auto; padding: 16px 20px 30px; display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--grau); border-top: 1px solid var(--linie); }

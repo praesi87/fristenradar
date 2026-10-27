@@ -12,6 +12,12 @@ export interface AppKontext {
   setStichtag(s: string): void;
   neuLaden(): Promise<void>;
   melde(text: string, art?: "ok" | "fehler"): void;
+  /** Statuszeile der Hintergrund-Automatik (Import, Adresssuche), sonst null */
+  hintergrund: string | null;
+  /** Fehlende Fähnchen suchen; erneut = auch früher erfolglose Adressen noch einmal versuchen */
+  positionenErmitteln(erneut?: boolean): Promise<void>;
+  /** Import-Ordner prüfen und Fähnchen setzen (wie beim Öffnen der App) */
+  automatik(): Promise<void>;
 }
 
 export const Kontext = createContext<AppKontext | null>(null);

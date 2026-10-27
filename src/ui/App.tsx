@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { erstelleStore, STANDARD_BUERO, type Austragung, type Buero } from "../lib/store";
 import type { Objekt } from "../lib/felder";
 import { heute, deDatum } from "../lib/fristen";
+import { autoImport, berichtText, kannAutoImport } from "../lib/autoimport";
+import { positionenErmitteln } from "../lib/autogeo";
 import { Kontext, useRoute, geheZu, type AppKontext } from "./kontext";
 import { Liste } from "./Liste";
 import { ObjektSeite } from "./Objekt";
@@ -12,6 +14,9 @@ import { Login } from "./Login";
 import { Logo } from "./gemeinsam";
 
 const store = erstelleStore();
+
+/** So oft prüft eine offene App, ob der Wochen-Task neue Import-Dateien abgelegt hat. */
+const IMPORT_INTERVALL_MS = 15 * 60 * 1000;
 
 export function App() {
   const [nutzer, setNutzer] = useState<string | null | undefined>(undefined);
@@ -47,6 +52,53 @@ export function App() {
     }
   }, []);
 
+  // ---------- Automatik: Import-Dateien übernehmen und Fähnchen setzen, ohne Klick
+  const [hintergrund, setHintergrund] = useState<string | null>(null);
+  const [importBericht, setImportBericht] = useState<{ text: string; fehler: boolean } | null>(null);
+  const laeuft = useRef(false);
+  const abmeldung = useRef(false);
+
+  const positionen = useCallback(
+    async (erneut = false) => {
+      const r = await positionenErmitteln(store, await store.liste(), {
+        erneut,
+        beiFortschritt: (nr, von, projekt) => setHintergrund(`Fähnchen werden gesetzt: ${nr}/${von} – ${projekt}`),
+        nachBlock: neuLaden,
+        abgebrochen: () => abmeldung.current,
+      });
+      return r;
+    },
+    [neuLaden],
+  );
+
+  /** Neue Import-Dateien übernehmen, danach fehlende Positionen suchen. Läuft nie doppelt. */
+  const automatik = useCallback(
+    async (nurPositionen = false, erneut = false) => {
+      if (laeuft.current || store.modus === "demo") return;
+      laeuft.current = true;
+      try {
+        if (!nurPositionen && kannAutoImport(store)) {
+          setHintergrund("Neue Rechercheergebnisse werden geprüft …");
+          const e = await autoImport(store);
+          if (e.dateien.length || e.fehler.length) {
+            setImportBericht({ text: berichtText(e), fehler: e.fehler.length > 0 });
+            await neuLaden();
+          }
+        }
+        const g = await positionen(erneut);
+        if (g.gefunden || g.nichtGefunden) await neuLaden();
+        if (g.fehler) melde(`Adresssuche unterbrochen: ${g.fehler}. Sie wird beim nächsten Öffnen fortgesetzt.`, "fehler");
+        else if (nurPositionen) melde(`${g.gefunden} Positionen ermittelt${g.nichtGefunden ? `, ${g.nichtGefunden} nicht gefunden – Adresse ergänzen oder Fähnchen in den Details setzen` : ""}.`);
+      } catch (e) {
+        melde((e as Error).message, "fehler");
+      } finally {
+        setHintergrund(null);
+        laeuft.current = false;
+      }
+    },
+    [neuLaden, positionen, melde],
+  );
+
   const aktualisiereNutzer = useCallback(async () => {
     const [n, a] = await Promise.all([store.nutzer(), store.anzeigename()]);
     setNutzer(n);
@@ -54,6 +106,7 @@ export function App() {
   }, []);
 
   const abmelden = useCallback(async () => {
+    abmeldung.current = true;
     await store.abmelden();
     await aktualisiereNutzer();
   }, [aktualisiereNutzer]);
@@ -72,15 +125,35 @@ export function App() {
 
   useEffect(() => {
     if (!nutzer) return;
-    store.freigeschaltet().then((f) => {
+    abmeldung.current = false;
+    store.freigeschaltet().then(async (f) => {
       setFrei(f);
-      if (f) neuLaden();
+      if (!f) return;
+      await neuLaden();
+      automatik();
     });
-  }, [nutzer, neuLaden]);
+  }, [nutzer, neuLaden, automatik]);
+
+  // Offene App: regelmäßig und beim Zurückwechseln in den Tab nach neuen Ergebnissen sehen
+  useEffect(() => {
+    if (!nutzer || !frei || store.modus === "demo") return;
+    const t = window.setInterval(() => automatik(), IMPORT_INTERVALL_MS);
+    const sichtbar = () => {
+      if (document.visibilityState === "visible") automatik();
+    };
+    document.addEventListener("visibilitychange", sichtbar);
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", sichtbar);
+    };
+  }, [nutzer, frei, automatik]);
 
   const ctx: AppKontext | null = useMemo(
-    () => (nutzer ? { store, nutzer, objekte, austragungen, buero, stichtag, setStichtag, neuLaden, melde } : null),
-    [nutzer, objekte, austragungen, buero, stichtag, neuLaden, melde],
+    () =>
+      nutzer
+        ? { store, nutzer, objekte, austragungen, buero, stichtag, setStichtag, neuLaden, melde, hintergrund, positionenErmitteln: (erneut = false) => automatik(true, erneut), automatik: () => automatik() }
+        : null,
+    [nutzer, objekte, austragungen, buero, stichtag, neuLaden, melde, hintergrund, automatik],
   );
 
   if (nutzer === undefined) return <div className="laden">Lädt …</div>;
@@ -130,6 +203,19 @@ export function App() {
       {store.modus === "demo" && (
         <div className="band band-demo">
           <b>Demo-Modus:</b> erfundene Beispieldaten, Änderungen gehen beim Neuladen verloren. Echte Daten: Seite ohne „?demo“ in der Adresse öffnen.
+        </div>
+      )}
+      {importBericht && (
+        <div className={`band ${importBericht.fehler ? "band-warn" : "band-ok"}`} role="status">
+          <b>Automatisch übernommen:</b> {importBericht.text}{" "}
+          <button className="link" onClick={() => setImportBericht(null)}>
+            Ausblenden
+          </button>
+        </div>
+      )}
+      {hintergrund && (
+        <div className="band band-info" role="status" aria-live="polite">
+          {hintergrund}
         </div>
       )}
       {stichtag !== heute() && (
