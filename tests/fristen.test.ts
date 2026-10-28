@@ -98,3 +98,30 @@ describe("Priorisierung bei bekannter Vertragsart (bewusste Erweiterung ggü. ma
     expect(berechne({ vertragsart: "VOB/B", datum: "2022-01-17" }, "2026-09-24").prioritaet).toBe(5);
   });
 });
+
+describe("Szenario-Ansicht 4 J. / 5 J. (Marktradar)", () => {
+  const stichtag = "2026-10-28";
+  it("5 J.: VOB/B-Eintrag wird nach dem 5-Jahres-Fristende gewertet", () => {
+    const f = berechne({ vertragsart: "VOB/B", datum: "2022-01-17" }, stichtag, 6, 5);
+    expect(f.fristende).toBe("2027-01-17");
+    expect(f.kandidaten).toEqual(["2027-01-17"]);
+    expect(f.imFenster).toBe(true);
+    expect(f.abgelaufen).toBe(false);
+    expect(f.prioritaet).toBe(3); // 81 Tage bis Fristende: zu knapp
+    expect(berechne({ vertragsart: "VOB/B", datum: "2022-06-01" }, stichtag, 6, 5).prioritaet).toBe(1);
+  });
+  it("4 J.: unklare Vertragsart nur mit dem 4-Jahres-Fristende", () => {
+    const f = berechne({ vertragsart: "unklar", datum: "2022-01-17" }, stichtag, 6, 4);
+    expect(f.fristende).toBe("2026-01-17");
+    expect(f.abgelaufen).toBe(true);
+    expect(f.teilweiseAbgelaufen).toBe(false);
+    expect(f.prioritaet).toBe(5);
+  });
+  it("manuelles Fristende hat Vorrang vor dem Szenario", () => {
+    const f = berechne({ vertragsart: "unklar", datum: "2022-01-17", fristende: "2026-12-31" }, stichtag, 6, 5);
+    expect(f.fristende).toBe("2026-12-31");
+  });
+  it("ohne Szenario unverändert", () => {
+    expect(berechne({ vertragsart: "unklar", datum: "2022-01-17" }, stichtag).fristende).toBe("2027-01-17");
+  });
+});

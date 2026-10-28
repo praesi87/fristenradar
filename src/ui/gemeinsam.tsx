@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Objekt } from "../lib/felder";
-import { ampel, berechne, type Fristen } from "../lib/fristen";
+import { HORIZONT_MONATE, ampel, berechne, type Fristen, type Szenario } from "../lib/fristen";
 import { entfernungKm } from "../lib/geo";
 import type { Buero } from "../lib/store";
 
@@ -24,10 +24,10 @@ export interface Zeile {
   km: number | null;
 }
 
-export function berechneZeilen(objekte: Objekt[], stichtag: string, buero: Buero | null): Zeile[] {
+export function berechneZeilen(objekte: Objekt[], stichtag: string, buero: Buero | null, szenario: Szenario = null): Zeile[] {
   return objekte.map((o) => ({
     o,
-    f: berechne(o, stichtag),
+    f: berechne(o, stichtag, HORIZONT_MONATE, szenario),
     km: buero && o.lat !== null && o.lon !== null ? entfernungKm(buero, { lat: o.lat, lon: o.lon }) : null,
   }));
 }
