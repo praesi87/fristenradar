@@ -156,6 +156,24 @@ button { font-family: inherit; }
 .th-knopf { all: unset; cursor: pointer; display: block; padding: 10px 12px; }
 .th-knopf:focus-visible { outline: 2px solid var(--rot); }
 .tabelle td { padding: 10px 12px; border-bottom: 1px solid var(--linie); vertical-align: top; }
+
+/* Liste: feste Spaltenbreiten, alle Spalten ohne Querscrollen sichtbar; lange Texte gekürzt (voller Text als Tooltip und im Detail) */
+.tabelle-kompakt { table-layout: fixed; min-width: 900px; font-size: 13.5px; }
+.tabelle-kompakt th { font-size: 10.5px; letter-spacing: 0.05em; }
+.tabelle-kompakt .th-knopf, .tabelle-kompakt th:not(:has(button)) { padding: 8px 6px; }
+.tabelle-kompakt th:first-child .th-knopf { padding-left: 10px; }
+.tabelle-kompakt td { padding: 7px 6px; overflow: hidden; }
+.tabelle-kompakt td:first-child { padding-left: 10px; }
+.tabelle-kompakt .sub { font-size: 12px; }
+.tabelle-kompakt .mono { font-size: 12px; white-space: normal; }
+.tabelle-kompakt .f2 > span, .tabelle-kompakt .nowrap { white-space: nowrap; }
+.tabelle-kompakt .chip { font-size: 11px; padding: 1px 5px; max-width: 100%; box-sizing: border-box; vertical-align: top; }
+.tabelle-kompakt .pill { font-size: 11px; padding: 2px 5px; white-space: normal; }
+.kappe-1, .kappe-2, .kappe-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.kappe-1 { -webkit-line-clamp: 1; line-clamp: 1; }
+.kappe-2 { -webkit-line-clamp: 2; line-clamp: 2; }
+.kappe-3 { -webkit-line-clamp: 3; line-clamp: 3; }
+.chip.kappe-1 { display: inline-block; white-space: nowrap; text-overflow: ellipsis; }
 .zeile { cursor: pointer; }
 .zeile:hover td { background: var(--flaeche); }
 .zeile td:first-child { border-left: 4px solid var(--s); }

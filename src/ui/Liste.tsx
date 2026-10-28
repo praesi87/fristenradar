@@ -182,15 +182,26 @@ export function Liste({ spur }: { spur: Spur }) {
       </div>
 
       <div className="tabelle-rahmen">
-        <table className="tabelle">
+        <table className="tabelle tabelle-kompakt">
+          <colgroup>
+            <col style={{ width: spur === "B" ? "21%" : "25%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "8%" }} />
+            {spur === "B" && <col style={{ width: "4%" }} />}
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "8%" }} />
+          </colgroup>
           <thead>
             <tr>
               {th("projekt", "Projekt / Ort")}
               <th>Bauherr</th>
               <th>Auftragnehmer</th>
-              {th("datum", spur === "A" ? "Abnahme" : "Fertigstellung")}
-              {th("fristende", "Fristende 4 J. / 5 J.")}
-              <th>Resttage</th>
+              {th("datum", spur === "A" ? "Abnahme" : "Fertigst.")}
+              {th("fristende", "Fristende 4/5 J.")}
+              <th>Rest</th>
               {spur === "B" && th("prio", "Prio")}
               {th("km", "Entf.")}
               <th>Status</th>
@@ -228,24 +239,40 @@ function Kpi({ n, l, k }: { n: number; l: string; k: string }) {
 function ZeileRow({ z, spur }: { z: Zeile; spur: Spur }) {
   const { o, f, km } = z;
   const ap = f.genauigkeit === "Monat" ? "≈ " : "";
+  const ort = [o.adresse, [o.plz, o.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
   const hit = (d: string | null, j: 4 | 5) => (f.fest ? false : (f.art === "VOB" && j === 4) || (f.art === "BGB" && j === 5) || (f.art === "unklar" && d === f.fristende));
   return (
     <tr className={`zeile zeile-${f.tage === null || f.tage < 0 ? "past" : f.tage <= 90 ? "crit" : f.tage <= 182 ? "warn" : "ok"}`} onClick={() => geheZu(`objekt/${o.id}`)}>
       <td>
-        <a className="proj" href={`#/objekt/${o.id}`} onClick={(e) => e.stopPropagation()}>
+        <a className="proj kappe-2" href={`#/objekt/${o.id}`} onClick={(e) => e.stopPropagation()} title={o.projekt}>
           {o.projekt}
         </a>
-        <div className="sub">{[o.adresse, [o.plz, o.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>
+        <div className="sub kappe-1" title={ort}>
+          {ort}
+        </div>
       </td>
-      <td>{o.bauherr || <span className="sub">–</span>}</td>
       <td>
-        {o.auftragnehmer || <span className="sub">nicht öffentlich</span>} {o.rolle_an && <span className="chip">{o.rolle_an}</span>}
+        <div className="kappe-3" title={o.bauherr}>
+          {o.bauherr || <span className="sub">–</span>}
+        </div>
+      </td>
+      <td>
+        <div className="kappe-2" title={o.auftragnehmer}>
+          {o.auftragnehmer || <span className="sub">nicht öffentlich</span>}
+        </div>
+        {o.rolle_an && (
+          <span className="chip kappe-1" title={o.rolle_an}>
+            {o.rolle_an}
+          </span>
+        )}
       </td>
       <td className="mono">
         {ap}
         {deDatum(f.abnahme)}
         {f.abnahmeGeschaetzt && <div className="sub">geschätzt aus Zuschlag</div>}
-        <div className="sub">{o.datumsart}</div>
+        <div className="sub kappe-2" title={o.datumsart}>
+          {o.datumsart}
+        </div>
       </td>
       <td className="mono">
         {f.fest ? (
@@ -280,12 +307,14 @@ function ZeileRow({ z, spur }: { z: Zeile; spur: Spur }) {
           {f.prioritaet ? <span className={`prio prio-${f.prioritaet}`}>P{f.prioritaet}</span> : "–"}
         </td>
       )}
-      <td className="mono">
+      <td className="mono nowrap">
         {kmText(km)}
         {o.geo_genauigkeit === "ort" && <span className="sub" title="Position nur ungefähr (Ortsmitte)"> ≈</span>}
       </td>
       <td>
-        <span className="chip">{o.status || "–"}</span>
+        <span className="chip kappe-1" title={o.status}>
+          {o.status || "–"}
+        </span>
       </td>
     </tr>
   );
