@@ -154,7 +154,13 @@ export function fensterEnde(stichtag: string, monate = HORIZONT_MONATE): string 
   return plusMonate(stichtag, monate);
 }
 
-export function berechne(e: FristEingabe, stichtag: string, horizontMonate = HORIZONT_MONATE): Fristen {
+/**
+ * Szenario-Ansicht (nur Marktradar): 4 oder 5 = für alle Einträge ohne manuelles Fristende nur dieses Fristende
+ * werten (Sortierung, Resttage, Fenster, Priorität), unabhängig von der Vertragsart. null = normale Logik nach Vertragsart.
+ */
+export type Szenario = 4 | 5 | null;
+
+export function berechne(e: FristEingabe, stichtag: string, horizontMonate = HORIZONT_MONATE, szenario: Szenario = null): Fristen {
   const bezug = parseDatum(e.datum);
   let abnahme = bezug.datum;
   let abnahmeGeschaetzt = false;
@@ -173,6 +179,9 @@ export function berechne(e: FristEingabe, stichtag: string, horizontMonate = HOR
   if (fest) {
     kandidaten = [fest];
     massg = fest;
+  } else if (szenario) {
+    massg = szenario === 4 ? f4 : f5;
+    kandidaten = massg ? [massg] : [];
   } else if (art === "VOB") {
     kandidaten = f4 ? [f4] : [];
     massg = f4;

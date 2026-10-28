@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { SPUR_NAME, STATUS, type Spur } from "../lib/felder";
-import { deDatum, fensterEnde } from "../lib/fristen";
+import { deDatum, fensterEnde, type Szenario } from "../lib/fristen";
 import { exportCsv } from "../lib/export";
 import { useApp, geheZu, herunterladen, lokal, lokalSetzen } from "./kontext";
 import { Ampel, OEFF, berechneZeilen, kmText, type Zeile } from "./gemeinsam";
@@ -15,6 +15,9 @@ export function Liste({ spur }: { spur: Spur }) {
   const [typ, setTyp] = useState("");
   const [status, setStatus] = useState("");
   const [umfang, setUmfang] = useState<"fenster" | "alle" | "archiv">(() => lokal(`umfang.${spur}`, "fenster"));
+  // Marktradar: Fristszenario 4 J. / beide / 5 J. (Register bleibt immer bei der belegten Vertragsart)
+  const [szenarioWahl, setSzenarioWahl] = useState<"4" | "beide" | "5">(() => lokal(`szenario.${spur}`, "5"));
+  const szenario: Szenario = spur === "B" && szenarioWahl !== "beide" ? (Number(szenarioWahl) as 4 | 5) : null;
   const [sort, setSort] = useState<{ k: Sortierung; dir: 1 | -1 }>({ k: "fristende", dir: 1 });
   // Tippt der Nutzer gerade im Suchfeld? Läuft 700 ms nach dem letzten Anschlag aus.
   const [tippt, setTippt] = useState(false);
@@ -29,7 +32,7 @@ export function Liste({ spur }: { spur: Spur }) {
     return () => window.clearTimeout(t);
   }, [suche]);
 
-  const alle = useMemo(() => berechneZeilen(objekte.filter((o) => o.spur === spur), stichtag, buero), [objekte, spur, stichtag, buero]);
+  const alle = useMemo(() => berechneZeilen(objekte.filter((o) => o.spur === spur), stichtag, buero, szenario), [objekte, spur, stichtag, buero, szenario]);
   const aktiv = alle.filter((z) => !z.o.archiviert && z.f.rheinMain);
   const fenster = aktiv.filter((z) => z.f.imFenster);
   const kritisch = fenster.filter((z) => z.f.tage !== null && z.f.tage <= 90);
@@ -179,6 +182,22 @@ export function Liste({ spur }: { spur: Spur }) {
             </button>
           ))}
         </div>
+        {spur === "B" && (
+          <div className="seg" role="group" aria-label="Fristszenario" title="Nach welchem Fristende sortiert, gefiltert und priorisiert wird. Ein manuell gepflegtes Fristende gilt immer.">
+            <span className="seg-titel">Frist</span>
+            {(
+              [
+                ["4", "4 J."],
+                ["beide", "beide"],
+                ["5", "5 J."],
+              ] as const
+            ).map(([k, l]) => (
+              <button key={k} aria-pressed={szenarioWahl === k} onClick={() => (setSzenarioWahl(k), lokalSetzen(`szenario.${spur}`, k))}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="tabelle-rahmen">
@@ -200,7 +219,7 @@ export function Liste({ spur }: { spur: Spur }) {
               <th>Bauherr</th>
               <th>Auftragnehmer</th>
               {th("datum", spur === "A" ? "Abnahme" : "Fertigst.")}
-              {th("fristende", "Fristende 4/5 J.")}
+              {th("fristende", szenario ? `Fristende (${szenario} J.)` : "Fristende 4/5 J.")}
               <th>Rest</th>
               {spur === "B" && th("prio", "Prio")}
               {th("km", "Entf.")}
@@ -209,7 +228,7 @@ export function Liste({ spur }: { spur: Spur }) {
           </thead>
           <tbody>
             {sortiert.map((z) => (
-              <ZeileRow key={z.o.id} z={z} spur={spur} />
+              <ZeileRow key={z.o.id} z={z} spur={spur} szenario={szenario} />
             ))}
           </tbody>
         </table>
@@ -220,7 +239,10 @@ export function Liste({ spur }: { spur: Spur }) {
         {spur === "B"
           ? "Das Datum ist ein öffentlich genannter Proxy (Übergabe, Eröffnung, Einzug, Zuschlag), nicht die förmliche Abnahme; die tatsächliche Frist kann um Wochen bis Monate abweichen."
           : "Maßgeblich ist die belegte förmliche Abnahme aus den eigenen Unterlagen."}{" "}
-        Fristende = Datum + 4 Jahre (VOB/B § 13 Abs. 4) bzw. + 5 Jahre (BGB § 634a), Fristlauf nach §§ 187 Abs. 1, 188 Abs. 2 BGB. Ist die Vertragsart unklar, zählen beide Szenarien.
+        Fristende = Datum + 4 Jahre (VOB/B § 13 Abs. 4) bzw. + 5 Jahre (BGB § 634a), Fristlauf nach §§ 187 Abs. 1, 188 Abs. 2 BGB.{" "}
+        {szenario
+          ? `Ansicht „${szenario} J.“: Sortierung, Resttage, Fenster und Priorität rechnen für alle Einträge mit dem ${szenario}-Jahres-Fristende, unabhängig von der Vertragsart (manuelles Fristende hat Vorrang).`
+          : "Ist die Vertragsart unklar, zählen beide Szenarien."}
         Teilabnahmen, TGA-Sonderfristen (2 Jahre ohne Wartungsvertrag), Hemmung und Verjährungsverzicht als manuelles Fristende pflegen. Entfernungen = Luftlinie.
       </p>
     </section>
@@ -236,11 +258,11 @@ function Kpi({ n, l, k }: { n: number; l: string; k: string }) {
   );
 }
 
-function ZeileRow({ z, spur }: { z: Zeile; spur: Spur }) {
+function ZeileRow({ z, spur, szenario }: { z: Zeile; spur: Spur; szenario: Szenario }) {
   const { o, f, km } = z;
   const ap = f.genauigkeit === "Monat" ? "≈ " : "";
   const ort = [o.adresse, [o.plz, o.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-  const hit = (d: string | null, j: 4 | 5) => (f.fest ? false : (f.art === "VOB" && j === 4) || (f.art === "BGB" && j === 5) || (f.art === "unklar" && d === f.fristende));
+  const hit = (d: string | null, j: 4 | 5) => (f.fest ? false : szenario ? j === szenario : (f.art === "VOB" && j === 4) || (f.art === "BGB" && j === 5) || (f.art === "unklar" && d === f.fristende));
   return (
     <tr className={`zeile zeile-${f.tage === null || f.tage < 0 ? "past" : f.tage <= 90 ? "crit" : f.tage <= 182 ? "warn" : "ok"}`} onClick={() => geheZu(`objekt/${o.id}`)}>
       <td>
